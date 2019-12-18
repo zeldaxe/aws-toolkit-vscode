@@ -224,5 +224,5 @@
     "AWS.template.error.showErrorDetails.title": "Error details for",
     "AWS.template.error.showErrorDetails.errorCode": "Error code",
     "AWS.template.error.showErrorDetails.errorMessage": "Error message",
-    "AWS.command.polaris": "Will it build? That is the question."
+    "AWS.command.reactInvoker": "React Lambda Invoker"
 }

@@ -49,7 +49,7 @@
         "onCommand:aws.github",
         "onView:aws.cdk.explorer",
         "onCommand:aws.refreshCdkExplorer",
-        "onCommand:aws.polaris"
+        "onCommand:aws.reactInvoker"
     ],
     "main": "./extensionMain",
     "contributes": {
@@ -299,8 +299,8 @@
         },
         "commands": [
             {
-                "command": "aws.polaris",
-                "title": "%AWS.command.polaris%",
+                "command": "aws.reactInvoker",
+                "title": "%AWS.command.reactInvoker%",
                 "category": "AWS"
             },
             {

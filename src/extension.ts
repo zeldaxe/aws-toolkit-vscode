@@ -9,6 +9,10 @@ import * as nls from 'vscode-nls'
 import { activate as activateAwsExplorer } from './awsexplorer/activation'
 import { activate as activateCdk } from './cdk/activation'
 import { activate as activateSchemas } from './eventSchemas/activation'
+import { activate as activateLogger } from './shared/logger/activation'
+import { activate as activateServerless } from './shared/sam/activation'
+import { activate as activateWebviews } from './webviews/activation'
+
 import { DefaultAWSClientBuilder } from './shared/awsClientBuilder'
 import { AwsContextTreeCollection } from './shared/awsContextTreeCollection'
 import { DefaultToolkitClientBuilder } from './shared/clients/defaultToolkitClientBuilder'
@@ -22,9 +26,7 @@ import { DefaultAWSStatusBar } from './shared/defaultStatusBar'
 import { ext } from './shared/extensionGlobals'
 import { showQuickStartWebview, toastNewUser } from './shared/extensionUtilities'
 import { getLogger } from './shared/logger'
-import { activate as activateLogger } from './shared/logger/activation'
 import { DefaultRegionProvider } from './shared/regions/defaultRegionProvider'
-import { activate as activateServerless } from './shared/sam/activation'
 import { DefaultSettingsConfiguration } from './shared/settingsConfiguration'
 import { AwsTelemetryOptOut } from './shared/telemetry/awsTelemetryOptOut'
 import { DefaultTelemetryService } from './shared/telemetry/defaultTelemetryService'
@@ -32,7 +34,6 @@ import { TelemetryNamespace } from './shared/telemetry/telemetryTypes'
 import { registerCommand } from './shared/telemetry/telemetryUtils'
 import { ExtensionDisposableFiles } from './shared/utilities/disposableFiles'
 import { getChannelLogger } from './shared/utilities/vsCodeUtils'
-import { createReactWebview } from './webviews/reactLoader'
 
 export async function activate(context: vscode.ExtensionContext) {
     const localize = nls.loadMessageBundle()
@@ -72,27 +73,6 @@ export async function activate(context: vscode.ExtensionContext) {
             console.warn(`Exception while displaying opt-out message: ${err}`)
         })
         await ext.telemetry.start()
-
-        registerCommand({
-            command: 'aws.polaris',
-            callback: async () =>
-                await createReactWebview({
-                    id: 'invoke',
-                    name: 'Sample Invoker!',
-                    webviewJs: 'invokeRemote.js',
-                    onDidReceiveMessageFunction: message => {
-                        vscode.window.showInformationMessage(message.payload)
-                    },
-                    onDidDisposeFunction: () => {
-                        vscode.window.showInformationMessage("That's all, folks!")
-                    },
-                    context
-                }),
-            telemetryName: {
-                namespace: TelemetryNamespace.Aws,
-                name: 'polaris'
-            }
-        })
 
         registerCommand({
             command: 'aws.login',
@@ -154,6 +134,8 @@ export async function activate(context: vscode.ExtensionContext) {
         await activateAwsExplorer({ awsContext, context, awsContextTrees, regionProvider, resourceFetcher })
 
         await activateSchemas()
+
+        await activateWebviews(context)
 
         await ext.statusBar.updateContext(undefined)
 
