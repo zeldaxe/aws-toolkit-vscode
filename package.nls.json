@@ -37,6 +37,7 @@
     "AWS.command.deleteLambda.error": "There was an error deleting lambda function '{0}'",
     "AWS.command.deploySamApplication": "Deploy SAM Application",
     "AWS.command.invokeLambda": "Invoke on AWS",
+    "AWS.command.invokeLambdaReact": "Invoke on AWS with React",
     "AWS.command.configureLambda": "Configure",
     "AWS.command.refreshAwsExplorer": "Refresh AWS Explorer",
     "AWS.command.refreshCdkExplorer": "Refresh CDK Explorer",
@@ -222,5 +223,6 @@
     "AWS.generic.response.yes": "Yes",
     "AWS.template.error.showErrorDetails.title": "Error details for",
     "AWS.template.error.showErrorDetails.errorCode": "Error code",
-    "AWS.template.error.showErrorDetails.errorMessage": "Error message"
+    "AWS.template.error.showErrorDetails.errorMessage": "Error message",
+    "AWS.command.polaris": "Will it build? That is the question."
 }

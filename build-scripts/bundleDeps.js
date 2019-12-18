@@ -15,6 +15,18 @@ const JS_DEPS = [
     {
         name: 'lodash.min.js',
         path: 'lodash/lodash.min.js'
+    },
+    {
+        name: 'react.development.js',
+        path: 'react/umd/react.development.js'
+    },
+    {
+        name: 'react-dom.development.js',
+        path: 'react-dom/umd/react-dom.development.js'
+    },
+    {
+        name: 'react-dom-server.browser.development.js',
+        path: 'react-dom/umd/react-dom-server.browser.development.js'
     }
 ]
 const WORKING_DIR = path.join(__dirname, '..')

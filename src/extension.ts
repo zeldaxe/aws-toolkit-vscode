@@ -32,6 +32,7 @@ import { TelemetryNamespace } from './shared/telemetry/telemetryTypes'
 import { registerCommand } from './shared/telemetry/telemetryUtils'
 import { ExtensionDisposableFiles } from './shared/utilities/disposableFiles'
 import { getChannelLogger } from './shared/utilities/vsCodeUtils'
+import { createReactWebview } from './webviews/reactLoader'
 
 export async function activate(context: vscode.ExtensionContext) {
     const localize = nls.loadMessageBundle()
@@ -71,6 +72,27 @@ export async function activate(context: vscode.ExtensionContext) {
             console.warn(`Exception while displaying opt-out message: ${err}`)
         })
         await ext.telemetry.start()
+
+        registerCommand({
+            command: 'aws.polaris',
+            callback: async () =>
+                await createReactWebview({
+                    id: 'invoke',
+                    name: 'Sample Invoker!',
+                    webviewJs: 'invokeRemote.js',
+                    onDidReceiveMessageFunction: message => {
+                        vscode.window.showInformationMessage(message.payload)
+                    },
+                    onDidDisposeFunction: () => {
+                        vscode.window.showInformationMessage("That's all, folks!")
+                    },
+                    context
+                }),
+            telemetryName: {
+                namespace: TelemetryNamespace.Aws,
+                name: 'polaris'
+            }
+        })
 
         registerCommand({
             command: 'aws.login',

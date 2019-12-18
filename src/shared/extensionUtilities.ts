@@ -16,6 +16,25 @@ import { Logger } from './logger'
 const localize = nls.loadMessageBundle()
 
 export class ExtensionUtilities {
+    // join these with the extension path
+    public static LIBS_PATH: string = path.join('media', 'libs')
+    public static JS_PATH: string = path.join('media', 'js')
+    public static CSS_PATH: string = path.join('media', 'css')
+
+    public static getFilesAsVsCodeResources(
+        context: vscode.ExtensionContext,
+        rootdir: string,
+        filenames: string[],
+        webview: vscode.Webview
+    ) {
+        const arr: vscode.Uri[] = []
+        for (const filename of filenames) {
+            arr.push(webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, rootdir, filename))))
+        }
+
+        return arr
+    }
+
     public static getLibrariesForHtml(names: string[]): ScriptResource[] {
         const basePath = path.join(ext.context.extensionPath, 'media', 'libs')
 
