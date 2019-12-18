@@ -9,7 +9,7 @@ module.exports = {
         invokeRemote: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'invokeRemote.tsx')
     },
     output: {
-        path: path.resolve(__dirname, 'webviews'),
+        path: path.resolve(__dirname, 'compiledWebviews'),
         filename: '[name].js'
     },
 
