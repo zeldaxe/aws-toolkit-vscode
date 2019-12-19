@@ -8,3 +8,24 @@ export interface vscode<State> {
     setState(state: State): void
     getState(): State
 }
+
+/**
+ * ValidityFields are used for input fields whose validity you want to check upstream.
+ * Only usable for input fields whose value is a string.
+ * @field value: Value to add to input field.
+ * @field isValid: Whether or not the value is valid. Useful for highlighting the field in case it's invalid.
+ */
+export interface ValidityField {
+    value: string
+    isValid: boolean
+}
+
+/**
+ * Generates a default ValidityField (blank string as value, isValid is true)
+ */
+export function generateDefaultValidityField(): ValidityField {
+    return {
+        value: '',
+        isValid: true
+    }
+}

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { vscode } from '../../utils'
+import { ValidityField, vscode } from '../../utils'
 
 export interface InvokerProps {
     vscode: vscode<InvokerState>
@@ -11,13 +11,8 @@ export interface InvokerProps {
 }
 
 export interface InvokerState {
-    region: InvokerField
-    lambda: InvokerField
-    template: InvokerField
-    payload: InvokerField
-}
-
-export interface InvokerField {
-    value: string
-    isValid: boolean
+    region: ValidityField
+    lambda: ValidityField
+    template: ValidityField
+    payload: ValidityField
 }

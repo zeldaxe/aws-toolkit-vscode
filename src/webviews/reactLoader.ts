@@ -14,7 +14,7 @@ export interface reactWebviewParams<T> {
     name: string
     webviewJs: string
     context: vscode.ExtensionContext
-    onDidReceiveMessageFunction(message: T): any
+    onDidReceiveMessageFunction(message: T, postMessage: (event: T) => Thenable<boolean>): any
     onDidDisposeFunction(): any
 }
 
@@ -46,20 +46,22 @@ export async function createReactWebview<T>(params: reactWebviewParams<T>) {
         scripts = scripts.concat(`<script src="${element}"></script>\n\n`)
     })
 
-    const mainScript: vscode.Uri = view.webview.asWebviewUri(
-        vscode.Uri.file(path.join(params.context.extensionPath, 'webviews', params.webviewJs))
-    )
+    const mainScript: vscode.Uri = view.webview.asWebviewUri(vscode.Uri.file(path.join(extpath, params.webviewJs)))
 
     view.title = params.name
     view.webview.html = `<html>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${
-            view.webview.cspSource
-        } https:; script-src ${view.webview.cspSource} 'self' 'unsafe-eval' 'unsafe-inline'; style-src ${
-        view.webview.cspSource
-    }; font-src 'self' data:;">
+        <meta
+            http-equiv="Content-Security-Policy"
+            content=
+                "default-src 'none';
+                img-src ${view.webview.cspSource} https:;
+                script-src ${view.webview.cspSource} 'self' 'unsafe-eval' 'unsafe-inline';
+                style-src ${view.webview.cspSource};
+                font-src 'self' data:;"
+        >
     </head>
     <body>
         <!-- TODO: Move this to a file so we can remove 'unsafe-inline' -->
@@ -77,7 +79,7 @@ export async function createReactWebview<T>(params: reactWebviewParams<T>) {
 
     view.webview.onDidReceiveMessage(
         (message: T) => {
-            params.onDidReceiveMessageFunction(message)
+            params.onDidReceiveMessageFunction(message, view.webview.postMessage)
         },
         undefined,
         params.context.subscriptions
