@@ -146,6 +146,7 @@ rules:
     quotemark:
         options:
             - single
+            - jsx-double
             - avoid-template
             - avoid-escape
     switch-final-break:
