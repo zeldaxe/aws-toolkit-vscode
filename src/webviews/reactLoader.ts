@@ -14,12 +14,13 @@ export interface reactWebviewParams<T> {
     name: string
     webviewJs: string
     context: vscode.ExtensionContext
+    initialState?: T
     onDidReceiveMessageFunction(message: T, postMessage: (event: T) => Thenable<boolean>): any
     onDidDisposeFunction(): any
 }
 
 /**
- * Creates a React webview with preloaded libraries.
+ * Creates a React webview with preloaded React libraries and CSS.
  * Handles onDidReceiveMessage and onDidDispose events (functions sent via params)
  *
  * @param params reactWebviewParameters
@@ -76,6 +77,12 @@ export async function createReactWebview<T>(params: reactWebviewParams<T>) {
         <script src="${mainScript}"></script>
     </body>
 </html>`
+
+    // message in initial state since we don't have access to the ReactDOM call at this level.
+    // TODO: Is there a better way to do this?
+    if (params.initialState) {
+        view.webview.postMessage(params.initialState)
+    }
 
     view.webview.onDidReceiveMessage(
         (message: T) => {
