@@ -79,7 +79,7 @@ export async function createReactWebview<T>(params: reactWebviewParams<T>) {
 
     view.webview.onDidReceiveMessage(
         (message: T) => {
-            params.onDidReceiveMessageFunction(message, view.webview.postMessage)
+            params.onDidReceiveMessageFunction(message, event => view.webview.postMessage(event))
         },
         undefined,
         params.context.subscriptions
