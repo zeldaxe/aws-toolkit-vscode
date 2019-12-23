@@ -15,7 +15,9 @@ export interface reactWebviewParams<T> {
     webviewJs: string
     context: vscode.ExtensionContext
     initialState?: T
-    onDidReceiveMessageFunction(message: T, postMessage: (event: T) => Thenable<boolean>): any
+    persistSessions?: boolean
+    persistWithoutFocus?: boolean
+    onDidReceiveMessageFunction(message: T, postMessageFn: (event: T) => Thenable<boolean>): any
     onDidDisposeFunction(): any
 }
 
