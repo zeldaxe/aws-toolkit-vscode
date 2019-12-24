@@ -3,27 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * Wrapper interface for the Webview VS Code API:
+ * @function postMessage: Posts a message to the Node controller
+ * @function setState: Sets the VS Code webview state so the webview can reload the view if the webview loses focus and isn't persistant.
+ * @function getState: Gets the VS Code webview state, used upon regaining focus without full persistence
+ */
 export interface VsCode<State> {
-    postMessage(state: State): void
+    postMessage(state: Partial<State>): void
     setState(state: State): void
     getState(): State
 }
 
+/**
+ * Base props for the top level object.
+ * Enforces state and grants access to the VS Code functions
+ */
 export interface VsCodeReactWebviewProp<State> {
     vscode: VsCode<State>
     defaultState: State
-}
-
-export interface VsCodeReactWebviewState {
-    validityFields: {
-        [fieldName: string]: ValidityField
-    }
-    booleans: {
-        [fieldName: string]: boolean
-    }
-    strings: {
-        [fieldName: string]: string
-    }
 }
 
 /**

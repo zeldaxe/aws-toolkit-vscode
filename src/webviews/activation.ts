@@ -22,26 +22,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 onDidDisposeFunction: myDisposal,
                 context,
                 initialState: {
-                    validityFields: {
-                        region: {
-                            value: 'us-weast-1',
-                            isValid: true
-                        },
-                        lambda: {
-                            value: '',
-                            isValid: true
-                        },
-                        payload: {
-                            value: '{"whoop": "there it is"}',
-                            isValid: false
-                        },
-                        template: {
-                            value: "not your mama's template",
-                            isValid: true
-                        }
+                    region: {
+                        value: 'us-weast-1',
+                        isValid: true
                     },
-                    booleans: {},
-                    strings: {}
+                    lambda: {
+                        value: '',
+                        isValid: true
+                    },
+                    payload: {
+                        value: '{"whoop": "there it is"}',
+                        isValid: false
+                    },
+                    template: {
+                        value: "not your mama's template",
+                        isValid: true
+                    }
                 }
             }),
         telemetryName: {
@@ -52,29 +48,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 async function myMessageHandler(message: InvokerState, postMessageFn: (event: InvokerState) => Thenable<boolean>) {
-    vscode.window.showInformationMessage(message.validityFields.payload.value)
+    vscode.window.showInformationMessage(message.region.value)
+    vscode.window.showInformationMessage(message.lambda.value)
+    vscode.window.showInformationMessage(message.payload.value)
+    vscode.window.showInformationMessage(message.template.value)
     vscode.window.showInformationMessage('posting message!')
     const result = await postMessageFn({
-        validityFields: {
-            region: {
-                value: 'modified region!',
-                isValid: true
-            },
-            lambda: {
-                value: 'modified lambda!',
-                isValid: true
-            },
-            payload: {
-                value: 'modified payload!',
-                isValid: false
-            },
-            template: {
-                value: 'modified template!',
-                isValid: true
-            }
+        region: {
+            value: 'modified region!',
+            isValid: true
         },
-        booleans: {},
-        strings: {}
+        lambda: {
+            value: 'modified lambda!',
+            isValid: true
+        },
+        payload: {
+            value: 'modified payload!',
+            isValid: false
+        },
+        template: {
+            value: 'modified template!',
+            isValid: true
+        }
     })
     vscode.window.showInformationMessage(`Posted message!: ${result.toString()}`)
 }

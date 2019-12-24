@@ -7,21 +7,19 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
 import { AwsComponent } from './components/awsComponent'
-import { generateDefaultValidityField, VsCode, VsCodeReactWebviewProp } from './interfaces/common'
+import { ValidityInput } from './components/primitives/validityInput'
+import { ValidityTextArea } from './components/primitives/validityTextArea'
+import { generateDefaultValidityField, ValidityField, VsCode, VsCodeReactWebviewProp } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
 
 declare const vscode: VsCode<InvokerState>
 
 function generateDefaultInvokerState(): InvokerState {
     return {
-        validityFields: {
-            lambda: generateDefaultValidityField(),
-            payload: generateDefaultValidityField(),
-            region: generateDefaultValidityField(),
-            template: generateDefaultValidityField()
-        },
-        booleans: {},
-        strings: {}
+        lambda: generateDefaultValidityField(),
+        payload: generateDefaultValidityField(),
+        region: generateDefaultValidityField(),
+        template: generateDefaultValidityField()
     }
 }
 
@@ -29,36 +27,32 @@ export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, 
     public render() {
         return (
             <div>
-                <input
+                <ValidityInput
                     name="region"
                     placeholder="region"
-                    value={this.state.validityFields.region.value}
-                    onChange={e => this.onValidityFieldChange(e)}
-                    className={`${this.state.validityFields.region.isValid ? '' : 'invalid'}`}
+                    validityField={this.state.region}
+                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
                 />
                 <br />
-                <input
+                <ValidityInput
                     name="lambda"
                     placeholder="lambda"
-                    value={this.state.validityFields.lambda.value}
-                    onChange={e => this.onValidityFieldChange(e)}
-                    className={`${this.state.validityFields.lambda.isValid ? '' : 'invalid'}`}
+                    validityField={this.state.lambda}
+                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
                 />
                 <br />
-                <input
+                <ValidityInput
                     name="template"
                     placeholder="template"
-                    value={this.state.validityFields.template.value}
-                    onChange={e => this.onValidityFieldChange(e)}
-                    className={`${this.state.validityFields.template.isValid ? '' : 'invalid'}`}
+                    validityField={this.state.template}
+                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
                 />
                 <br />
-                <textarea
+                <ValidityTextArea
                     name="payload"
                     placeholder="JSON Payload"
-                    value={this.state.validityFields.payload.value}
-                    onChange={e => this.onValidityFieldChange(e)}
-                    className={`${this.state.validityFields.payload.isValid ? '' : 'invalid'}`}
+                    validityField={this.state.payload}
+                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
                 />
                 <br />
                 <button onClick={e => this.onSubmit(e)}>Submit!</button>
@@ -68,7 +62,8 @@ export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, 
 
     private onSubmit(event: React.MouseEvent) {
         try {
-            JSON.parse(this.state.validityFields.payload.value)
+            // basic client-side validation test. We should probably offload something like this to the controller.
+            JSON.parse(this.state.payload.value)
             this.props.vscode.postMessage(this.state)
         } catch (e) {}
     }

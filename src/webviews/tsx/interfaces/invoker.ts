@@ -3,13 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ValidityField, VsCodeReactWebviewState } from './common'
+import { ValidityField } from './common'
 
-export interface InvokerState extends VsCodeReactWebviewState {
-    validityFields: {
-        region: ValidityField
-        lambda: ValidityField
-        template: ValidityField
-        payload: ValidityField
-    }
+export interface InvokerState {
+    region: ValidityField
+    lambda: ValidityField
+    template: ValidityField
+    payload: ValidityField
 }

@@ -4,12 +4,12 @@
  */
 
 import React = require('react')
-import { ValidityField, VsCodeReactWebviewProp, VsCodeReactWebviewState } from '../interfaces/common'
+import { VsCodeReactWebviewProp } from '../interfaces/common'
 
-export abstract class AwsComponent<
-    Props extends VsCodeReactWebviewProp<State>,
-    State extends VsCodeReactWebviewState
-> extends React.Component<Props, State> {
+export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, State> extends React.Component<
+    Props,
+    State
+> {
     public constructor(props: Props) {
         super(props)
         this.setExistingState(this.props.defaultState)
@@ -59,60 +59,18 @@ export abstract class AwsComponent<
     }
 
     /**
-     * Used when changing a validity field; does not change the current validity state while changing the text.
-     * @param event React change event, details the target object
+     * Typed setState call that also deep merges the top level state object.
+     * Any lower-level merges need to be done manually.
+     * TODO: Is this really typesafe? Will this really force that this is a key, and that the value is correctly-typed?
+     * @param key Key to insert as
+     * @param value Value to insert
      */
-    protected onValidityFieldChange(event: React.ChangeEvent) {
-        // enforce that the element has value and name fields
-        const target = event.target as HTMLInputElement
-        // enforce that the name is a key
-        const name = target.name as keyof State['validityFields']
-        // get whole state so we can preserve the isValid status
-        const stateForName: ValidityField = this.state.validityFields[name]
-        stateForName.value = target.value
-        this.setState(({
-            validityFields: {
-                ...this.state.validityFields,
-                [name]: stateForName
-            }
-        } as any) as Pick<State, keyof State>)
-    }
-
-    /**
-     * Used when changing a boolean. Currently only works for checkboxes
-     * TODO: Let this handle additional inputs
-     * @param event React change event, details the target object
-     */
-    protected onBooleanChange(event: React.ChangeEvent) {
-        // enforce that the element has value and name fields
-        const target = event.target as HTMLInputElement
-        // enforce that the name is a key
-        const name = target.name as keyof State['booleans']
-        const value = target.checked
-        this.setState(({
-            booleans: {
-                ...this.state.booleans,
-                [name]: value
-            }
-        } as any) as Pick<State, keyof State>)
-    }
-
-    /**
-     * Used when changing a string. Does not handle validityField objects, and will not signal validity
-     * @param event React change event, details the target object
-     */
-    protected onStringChange(event: React.ChangeEvent) {
-        // enforce that the element has value and name fields
-        const target = event.target as HTMLInputElement
-        // enforce that the name is a key
-        const name = target.name as keyof State['strings']
-        const value = target.value
-        this.setState(({
-            strings: {
-                ...this.state.strings,
-                [name]: value
-            }
-        } as any) as Pick<State, keyof State>)
+    protected setSingleState<T>(key: string, value: T) {
+        const typesafeKey = key as keyof State
+        this.setState({
+            ...this.state,
+            [typesafeKey]: value
+        })
     }
 
     /**
