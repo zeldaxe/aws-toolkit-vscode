@@ -29,6 +29,11 @@ export interface WebviewOutputMessage<State> {
     command: string
 }
 
+export interface SelectOption {
+    displayName: string
+    value: string
+}
+
 /**
  * ValidityFields are used for input fields whose validity you want to check upstream.
  * Only usable for input fields whose value is a string.

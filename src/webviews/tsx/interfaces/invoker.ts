@@ -6,14 +6,14 @@
 import * as vscode from 'vscode'
 
 import { LambdaFunctionNode } from '../../../lambda/explorer/lambdaFunctionNode'
-import { ValidityField } from './common'
+import { SelectOption, ValidityField } from './common'
 
 export interface InvokerState {
     region: string
     lambda: string
     template: string
     payload: ValidityField
-    availableTemplates: string[]
+    availableTemplates: SelectOption[]
 }
 
 export interface InvokerContext {

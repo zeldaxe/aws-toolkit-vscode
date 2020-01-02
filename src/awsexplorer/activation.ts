@@ -27,7 +27,7 @@ import { AWSTreeNodeBase } from '../shared/treeview/nodes/awsTreeNodeBase'
 import { ErrorNode } from '../shared/treeview/nodes/errorNode'
 import { showErrorDetails } from '../shared/treeview/webviews/showErrorDetails'
 import { createReactWebview } from '../webviews/reactLoader'
-import { WebviewOutputMessage } from '../webviews/tsx/interfaces/common'
+import { SelectOption, WebviewOutputMessage } from '../webviews/tsx/interfaces/common'
 import { InvokerContext, InvokerState } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
 import { RegionNode } from './regionNode'
@@ -161,7 +161,7 @@ async function registerExperimentalCommand(
                 )
             ])
 
-            const availableTemplates: string[] = []
+            const availableTemplates: SelectOption[] = []
 
             xml2js.parseString(sampleInput, { explicitArray: false }, (err: Error, result: SampleRequestManifest) => {
                 if (err) {
@@ -171,7 +171,10 @@ async function registerExperimentalCommand(
                 const requests = result.requests.request
 
                 for (const request of requests) {
-                    availableTemplates.push(request.filename || '')
+                    availableTemplates.push({
+                        value: request.filename || '',
+                        displayName: request.name || ''
+                    })
                 }
             })
 

@@ -7,6 +7,7 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
 import { AwsComponent } from './components/awsComponent'
+import { SelectDropDown } from './components/primitives/selectDropDown'
 import { ValidityTextArea } from './components/primitives/validityTextArea'
 import { generateDefaultValidityField, ValidityField, VsCode, VsCodeReactWebviewProp } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
@@ -25,21 +26,25 @@ function generateDefaultInvokerState(): InvokerState {
 
 export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, InvokerState> {
     public render() {
-        const templates: JSX.Element[] = []
-
-        for (const template of this.state.availableTemplates) {
-            templates.push(<option value={template}>{template}</option>)
-        }
-
         return (
             <div>
                 <h1>
                     Calling Lambda function: {this.state.lambda} in Region: {this.state.region}
                 </h1>
                 <br />
-                <select value={this.state.template} onChange={e => this.onTemplateSelect(e)}>
-                    {templates}
-                </select>
+                <SelectDropDown
+                    name="template"
+                    options={this.state.availableTemplates}
+                    value={this.state.template}
+                    setState={(key: string, value: string) =>
+                        this.setSingleState<string>(key, value, () =>
+                            this.props.vscode.postMessage({
+                                message: this.state,
+                                command: 'sampleRequestSelected'
+                            })
+                        )
+                    }
+                />
                 <br />
                 <ValidityTextArea
                     name="payload"
@@ -53,27 +58,18 @@ export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, 
         )
     }
 
-    private onTemplateSelect(event: React.ChangeEvent<HTMLSelectElement>) {
-        this.setSingleState('template', event.target.value, () => {
-            this.props.vscode.postMessage({
-                message: this.state,
-                command: 'sampleRequestSelected'
-            })
-        })
-    }
-
     private onSubmit(event: React.MouseEvent) {
         try {
             // basic client-side validation test. We should probably offload something like this to the controller.
             JSON.parse(this.state.payload.value)
-            this.setSingleState('payload', { value: this.state.payload.value, isValid: true }, () => {
+            this.setSingleState('payload', { ...this.state.payload, isValid: true }, () => {
                 this.props.vscode.postMessage({
                     message: this.state,
                     command: 'invokeLambda'
                 })
             })
         } catch (e) {
-            this.setSingleState('payload', { value: this.state.payload.value, isValid: false })
+            this.setSingleState('payload', { ...this.state.payload, isValid: false })
         }
     }
 }

@@ -9,7 +9,7 @@ import { ValidityField } from '../../interfaces/common'
 export interface ValidityTextAreaProps {
     validityField: ValidityField
     name: string
-    placeholder: string
+    placeholder?: string
     setState(key: string, value: ValidityField): void
 }
 
@@ -26,8 +26,8 @@ export class ValidityTextArea extends React.Component<ValidityTextAreaProps, {}>
         )
     }
 
-    private updateParentState(event: React.ChangeEvent) {
-        const target = event.target as HTMLTextAreaElement
+    private updateParentState(event: React.ChangeEvent<HTMLTextAreaElement>) {
+        const target = event.target
         const vf: ValidityField = { value: target.value, isValid: this.props.validityField.isValid }
         this.props.setState(target.name, vf)
     }
