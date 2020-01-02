@@ -162,6 +162,10 @@
                     "when": "false"
                 },
                 {
+                    "command": "aws.invokeLambdaReact",
+                    "when": "false"
+                },
+                {
                     "command": "aws.viewSchemaItem",
                     "when": "false"
                 },
@@ -252,6 +256,11 @@
             "view/item/context": [
                 {
                     "command": "aws.invokeLambda",
+                    "when": "view == aws.explorer && viewItem =~ /^(awsRegionFunctionNode|awsCloudFormationFunctionNode)$/",
+                    "group": "0@1"
+                },
+                {
+                    "command": "aws.invokeLambdaReact",
                     "when": "view == aws.explorer && viewItem =~ /^(awsRegionFunctionNode|awsCloudFormationFunctionNode)$/",
                     "group": "0@1"
                 },

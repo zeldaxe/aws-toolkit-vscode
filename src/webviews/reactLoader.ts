@@ -8,16 +8,22 @@ import * as _ from 'lodash'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
+import { WebviewOutputMessage } from './tsx/interfaces/common'
 
-export interface reactWebviewParams<T> {
+export interface reactWebviewParams<State, HandlerContext> {
     id: string
     name: string
     webviewJs: string
     context: vscode.ExtensionContext
-    initialState?: T
+    initialState?: State
     persistSessions?: boolean
     persistWithoutFocus?: boolean
-    onDidReceiveMessageFunction(message: T, postMessageFn: (event: T) => Thenable<boolean>): any
+    handlerContext?: HandlerContext
+    onDidReceiveMessageFunction(
+        message: WebviewOutputMessage<State>,
+        postMessageFn: (event: Partial<State>) => Thenable<boolean>,
+        params?: HandlerContext
+    ): any
     onDidDisposeFunction(): any
 }
 
@@ -27,7 +33,7 @@ export interface reactWebviewParams<T> {
  *
  * @param params reactWebviewParameters
  */
-export async function createReactWebview<T>(params: reactWebviewParams<T>) {
+export async function createReactWebview<State, Context>(params: reactWebviewParams<State, Context>) {
     const extpath = path.join(params.context.extensionPath, 'compiledWebviews')
     const mediapath = path.join(params.context.extensionPath, 'media')
     const libpath = path.join(mediapath, 'libs')
@@ -87,8 +93,12 @@ export async function createReactWebview<T>(params: reactWebviewParams<T>) {
     }
 
     view.webview.onDidReceiveMessage(
-        (message: T) => {
-            params.onDidReceiveMessageFunction(message, event => view.webview.postMessage(event))
+        (message: WebviewOutputMessage<State>) => {
+            params.onDidReceiveMessageFunction(
+                message,
+                response => view.webview.postMessage(response),
+                params.handlerContext
+            )
         },
         undefined,
         params.context.subscriptions

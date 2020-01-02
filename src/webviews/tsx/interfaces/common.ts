@@ -10,7 +10,7 @@
  * @function getState: Gets the VS Code webview state, used upon regaining focus without full persistence
  */
 export interface VsCode<State> {
-    postMessage(state: Partial<State>): void
+    postMessage(output: WebviewOutputMessage<State>): void
     setState(state: State): void
     getState(): State
 }
@@ -22,6 +22,11 @@ export interface VsCode<State> {
 export interface VsCodeReactWebviewProp<State> {
     vscode: VsCode<State>
     defaultState: State
+}
+
+export interface WebviewOutputMessage<State> {
+    message: Partial<State>
+    command: string
 }
 
 /**

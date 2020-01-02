@@ -7,6 +7,7 @@ import * as vscode from 'vscode'
 import { TelemetryNamespace } from '../shared/telemetry/telemetryTypes'
 import { registerCommand } from '../shared/telemetry/telemetryUtils'
 import { createReactWebview } from './reactLoader'
+import { WebviewOutputMessage } from './tsx/interfaces/common'
 import { InvokerState } from './tsx/interfaces/invoker'
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -14,7 +15,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerCommand({
         command: 'aws.reactInvoker',
         callback: async () =>
-            await createReactWebview<InvokerState>({
+            await createReactWebview<InvokerState, {}>({
                 id: 'invoke',
                 name: 'Sample Invoker!',
                 webviewJs: 'invokeRemote.js',
@@ -22,22 +23,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 onDidDisposeFunction: myDisposal,
                 context,
                 initialState: {
-                    region: {
-                        value: 'us-weast-1',
-                        isValid: true
-                    },
-                    lambda: {
-                        value: '',
-                        isValid: true
-                    },
+                    region: 'us-east-1',
+                    lambda: 'function',
                     payload: {
                         value: '{"whoop": "there it is"}',
-                        isValid: false
-                    },
-                    template: {
-                        value: "not your mama's template",
                         isValid: true
-                    }
+                    },
+                    template: '',
+                    availableTemplates: []
                 }
             }),
         telemetryName: {
@@ -47,31 +40,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
 }
 
-async function myMessageHandler(message: InvokerState, postMessageFn: (event: InvokerState) => Thenable<boolean>) {
-    vscode.window.showInformationMessage(message.region.value)
-    vscode.window.showInformationMessage(message.lambda.value)
-    vscode.window.showInformationMessage(message.payload.value)
-    vscode.window.showInformationMessage(message.template.value)
-    vscode.window.showInformationMessage('posting message!')
-    const result = await postMessageFn({
-        region: {
-            value: 'modified region!',
-            isValid: true
-        },
-        lambda: {
-            value: 'modified lambda!',
-            isValid: true
-        },
-        payload: {
-            value: 'modified payload!',
-            isValid: false
-        },
-        template: {
-            value: 'modified template!',
-            isValid: true
-        }
-    })
-    vscode.window.showInformationMessage(`Posted message!: ${result.toString()}`)
+async function myMessageHandler(
+    output: WebviewOutputMessage<InvokerState>,
+    postMessageFn: (event: Partial<InvokerState>) => Thenable<boolean>
+) {
+    if (output.message.template === 'hi!') {
+        await postMessageFn({
+            region: 'us-east-1',
+            lambda: 'function',
+            payload: {
+                value: 'modified payload!',
+                isValid: true
+            },
+            template: 'Hi!'
+        })
+    } else {
+        await postMessageFn({
+            region: 'us-east-1',
+            lambda: 'function',
+            payload: {
+                value: 'modified payload!',
+                isValid: true
+            },
+            template: 'it is polite to say hi...'
+        })
+    }
 }
 
 function myDisposal() {

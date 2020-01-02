@@ -24,27 +24,36 @@ export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, 
         // resetting the state with this.setState to ensure that the state is what we want
         // we know that this.setState works at this point considering the component is now mounted
         this.setState(this.state)
-        window.addEventListener('message', event => this.overwriteStateWithMessage((event.data as any) as State))
+        window.addEventListener('message', event => this.mergeStateWithMessage((event.data as any) as State))
     }
 
     public componentWillUnmount() {
-        window.removeEventListener('message', event => this.overwriteStateWithMessage((event.data as any) as State))
+        window.removeEventListener('message', event => this.mergeStateWithMessage((event.data as any) as State))
     }
 
     /**
      * Wrapper function to set both React and VS Code state
+     *
      * Sets React state (since it merges state when setting) and uses that as source of truth to set VS Code state with.
-     * @param message State message to overwrite React state with
+     *
+     * **WARNING:** THIS IS NOT SYNCHRONOUS.
+     * @param state State message to overwrite React state with
+     * @param callback Callback function to run AFTER state has been set.
      */
-    public setState(message: State) {
-        super.setState(message)
-        this.props.vscode.setState(this.state)
+    public setState(state: State, callback?: () => void) {
+        super.setState(state, () => {
+            this.props.vscode.setState(this.state)
+            if (callback) {
+                callback()
+            }
+        })
     }
 
     /**
      * Sets the previous state of the webview if it exists in vscode.getState().
      * This state exists if a user navigates away from the webview and back without closing it.
      * Otherwise, this sets the default state.
+     * Note that this function does not handle a state that is messaged in as the event listener is not initialized.
      * @param defaultState Default webview state if no other states exist
      */
     protected setExistingState(defaultState: State): void {
@@ -60,24 +69,32 @@ export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, 
 
     /**
      * Typed setState call that also deep merges the top level state object.
+     *
      * Any lower-level merges need to be done manually.
+     *
      * TODO: Is this really typesafe? Will this really force that this is a key, and that the value is correctly-typed?
+     *
+     * **WARNING:** THIS IS NOT SYNCHRONOUS.
      * @param key Key to insert as
      * @param value Value to insert
+     * @param callback Callback function to run AFTER state has been set.
      */
-    protected setSingleState<T>(key: string, value: T) {
+    protected setSingleState<T>(key: string, value: T, callback?: () => void) {
         const typesafeKey = key as keyof State
-        this.setState({
-            ...this.state,
-            [typesafeKey]: value
-        })
+        this.setState(
+            {
+                ...this.state,
+                [typesafeKey]: value
+            },
+            callback
+        )
     }
 
     /**
      * Handles messaging from VS Code
-     * @param message State message to overwrite React state with
+     * @param message Partial state to merge with current state
      */
-    private overwriteStateWithMessage(message: State) {
-        this.setState(message)
+    private mergeStateWithMessage(message: Partial<State>) {
+        this.setState({ ...this.state, ...message })
     }
 }

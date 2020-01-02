@@ -3,24 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import * as path from 'path'
 import * as vscode from 'vscode'
+import * as xml2js from 'xml2js'
 
 import { deleteCloudFormation } from '../lambda/commands/deleteCloudFormation'
 import { deleteLambda } from '../lambda/commands/deleteLambda'
 import { invokeLambda } from '../lambda/commands/invokeLambda'
+import { sampleRequestManifestPath, sampleRequestPath } from '../lambda/constants'
 import { CloudFormationStackNode } from '../lambda/explorer/cloudFormationNodes'
 import { LambdaFunctionNode } from '../lambda/explorer/lambdaFunctionNode'
 import { AwsContext } from '../shared/awsContext'
 import { AwsContextTreeCollection } from '../shared/awsContextTreeCollection'
+import { LambdaClient } from '../shared/clients/lambdaClient'
 import { ext } from '../shared/extensionGlobals'
 import { safeGet } from '../shared/extensionUtilities'
 import { RegionProvider } from '../shared/regions/regionProvider'
 import { ResourceFetcher } from '../shared/resourceFetcher'
+import { FileResourceLocation, WebResourceLocation } from '../shared/resourceLocation'
 import { TelemetryNamespace } from '../shared/telemetry/telemetryTypes'
 import { registerCommand } from '../shared/telemetry/telemetryUtils'
 import { AWSTreeNodeBase } from '../shared/treeview/nodes/awsTreeNodeBase'
 import { ErrorNode } from '../shared/treeview/nodes/errorNode'
 import { showErrorDetails } from '../shared/treeview/webviews/showErrorDetails'
+import { createReactWebview } from '../webviews/reactLoader'
+import { WebviewOutputMessage } from '../webviews/tsx/interfaces/common'
+import { InvokerContext, InvokerState } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
 import { RegionNode } from './regionNode'
 
@@ -42,6 +50,8 @@ export async function activate(activateArguments: {
     )
 
     await registerAwsExplorerCommands(awsExplorer, activateArguments.awsContext, activateArguments.resourceFetcher)
+
+    await registerExperimentalCommand(activateArguments.context, activateArguments.resourceFetcher)
 
     activateArguments.awsContextTrees.addTree(awsExplorer)
 }
@@ -120,4 +130,134 @@ async function registerAwsExplorerCommands(
             awsexplorer.refresh(element)
         }
     })
+}
+
+interface SampleRequestManifest {
+    requests: {
+        request: {
+            name?: string
+            filename?: string
+        }[]
+    }
+}
+
+async function registerExperimentalCommand(
+    context: vscode.ExtensionContext,
+    resourceFetcher: ResourceFetcher,
+    outputChannel: vscode.OutputChannel = vscode.window.createOutputChannel('AWS Lambda')
+) {
+    registerCommand({
+        command: 'aws.invokeLambdaReact',
+        callback: async (node: LambdaFunctionNode) => {
+            const handlerContext: InvokerContext = {
+                node,
+                outputChannel
+            }
+
+            const sampleInput = await resourceFetcher.getResource([
+                new WebResourceLocation(sampleRequestManifestPath),
+                new FileResourceLocation(
+                    path.join(ext.context.extensionPath, 'resources', 'vs-lambda-sample-request-manifest.xml')
+                )
+            ])
+
+            const availableTemplates: string[] = []
+
+            xml2js.parseString(sampleInput, { explicitArray: false }, (err: Error, result: SampleRequestManifest) => {
+                if (err) {
+                    return
+                }
+
+                const requests = result.requests.request
+
+                for (const request of requests) {
+                    availableTemplates.push(request.filename || '')
+                }
+            })
+
+            await createReactWebview<InvokerState, InvokerContext>({
+                id: 'invoke',
+                name: 'Sample Invoker!',
+                webviewJs: 'invokeRemote.js',
+                handlerContext,
+                onDidReceiveMessageFunction: async (message, postMessageFn) =>
+                    invokeLambdaExperiment(message, postMessageFn, handlerContext, resourceFetcher),
+                onDidDisposeFunction: () => {},
+                context,
+                initialState: {
+                    region: node.regionCode,
+                    lambda: node.configuration.FunctionName || '',
+                    payload: {
+                        value: '{}',
+                        isValid: true
+                    },
+                    template: '',
+                    availableTemplates
+                }
+            })
+        },
+        telemetryName: {
+            namespace: TelemetryNamespace.Aws,
+            name: 'reactInvoker'
+        }
+    })
+}
+
+async function invokeLambdaExperiment(
+    output: WebviewOutputMessage<InvokerState>,
+    postMessageFn: (event: Partial<InvokerState>) => Thenable<boolean>,
+    context: InvokerContext,
+    resourceFetcher: ResourceFetcher
+) {
+    const outputChannel = context.outputChannel
+    const fn = context.node
+    outputChannel.show()
+
+    switch (output.command) {
+        case 'sampleRequestSelected':
+            outputChannel.appendLine(`Looking up resource for ${output.message.template}`)
+            const sample = await resourceFetcher.getResource([
+                new WebResourceLocation(`${sampleRequestPath}${output.message.template}`),
+                new FileResourceLocation(
+                    path.join(ext.context.extensionPath, 'resources', 'vs-lambda-sample-request-manifest.xml')
+                )
+            ])
+            outputChannel.appendLine(`found output: ${sample}`)
+
+            postMessageFn({
+                payload: {
+                    value: sample,
+                    isValid: true
+                }
+            })
+
+            return
+
+        case 'invokeLambda':
+            outputChannel.appendLine('Loading response...')
+            try {
+                if (!fn.configuration.FunctionArn) {
+                    throw new Error(`Could not determine ARN for function ${fn.configuration.FunctionName}`)
+                }
+                const client: LambdaClient = ext.toolkitClientBuilder.createLambdaClient(fn.regionCode)
+                const funcResponse = await client.invoke(fn.configuration.FunctionArn, output.message.payload!.value)
+                const logs = funcResponse.LogResult ? Buffer.from(funcResponse.LogResult, 'base64').toString() : ''
+                const payload = funcResponse.Payload ? funcResponse.Payload : JSON.stringify({})
+
+                outputChannel.appendLine(`Invocation resu5lt for ${fn.configuration.FunctionArn}`)
+                outputChannel.appendLine('Logs:')
+                outputChannel.appendLine(logs)
+                outputChannel.appendLine('')
+                outputChannel.appendLine('Payload:')
+                outputChannel.appendLine(payload.toString())
+                outputChannel.appendLine('')
+            } catch (e) {
+                const error = e as Error
+                outputChannel.appendLine(`There was an error invoking ${fn.configuration.FunctionArn}`)
+                outputChannel.appendLine(error.toString())
+                outputChannel.appendLine('')
+            }
+
+            return
+    }
 }

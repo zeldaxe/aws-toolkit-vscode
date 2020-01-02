@@ -7,7 +7,6 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
 import { AwsComponent } from './components/awsComponent'
-import { ValidityInput } from './components/primitives/validityInput'
 import { ValidityTextArea } from './components/primitives/validityTextArea'
 import { generateDefaultValidityField, ValidityField, VsCode, VsCodeReactWebviewProp } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
@@ -16,37 +15,31 @@ declare const vscode: VsCode<InvokerState>
 
 function generateDefaultInvokerState(): InvokerState {
     return {
-        lambda: generateDefaultValidityField(),
+        lambda: '',
         payload: generateDefaultValidityField(),
-        region: generateDefaultValidityField(),
-        template: generateDefaultValidityField()
+        region: '',
+        template: '',
+        availableTemplates: []
     }
 }
 
 export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, InvokerState> {
     public render() {
+        const templates: JSX.Element[] = []
+
+        for (const template of this.state.availableTemplates) {
+            templates.push(<option value={template}>{template}</option>)
+        }
+
         return (
             <div>
-                <ValidityInput
-                    name="region"
-                    placeholder="region"
-                    validityField={this.state.region}
-                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
-                />
+                <h1>
+                    Calling Lambda function: {this.state.lambda} in Region: {this.state.region}
+                </h1>
                 <br />
-                <ValidityInput
-                    name="lambda"
-                    placeholder="lambda"
-                    validityField={this.state.lambda}
-                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
-                />
-                <br />
-                <ValidityInput
-                    name="template"
-                    placeholder="template"
-                    validityField={this.state.template}
-                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
-                />
+                <select value={this.state.template} onChange={e => this.onTemplateSelect(e)}>
+                    {templates}
+                </select>
                 <br />
                 <ValidityTextArea
                     name="payload"
@@ -60,12 +53,28 @@ export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, 
         )
     }
 
+    private onTemplateSelect(event: React.ChangeEvent<HTMLSelectElement>) {
+        this.setSingleState('template', event.target.value, () => {
+            this.props.vscode.postMessage({
+                message: this.state,
+                command: 'sampleRequestSelected'
+            })
+        })
+    }
+
     private onSubmit(event: React.MouseEvent) {
         try {
             // basic client-side validation test. We should probably offload something like this to the controller.
             JSON.parse(this.state.payload.value)
-            this.props.vscode.postMessage(this.state)
-        } catch (e) {}
+            this.setSingleState('payload', { value: this.state.payload.value, isValid: true }, () => {
+                this.props.vscode.postMessage({
+                    message: this.state,
+                    command: 'invokeLambda'
+                })
+            })
+        } catch (e) {
+            this.setSingleState('payload', { value: this.state.payload.value, isValid: false })
+        }
     }
 }
 

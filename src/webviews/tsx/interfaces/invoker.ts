@@ -3,11 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import * as vscode from 'vscode'
+
+import { LambdaFunctionNode } from '../../../lambda/explorer/lambdaFunctionNode'
 import { ValidityField } from './common'
 
 export interface InvokerState {
-    region: ValidityField
-    lambda: ValidityField
-    template: ValidityField
+    region: string
+    lambda: string
+    template: string
     payload: ValidityField
+    availableTemplates: string[]
+}
+
+export interface InvokerContext {
+    node: LambdaFunctionNode
+    outputChannel: vscode.OutputChannel
 }
