@@ -27,7 +27,7 @@ import { AWSTreeNodeBase } from '../shared/treeview/nodes/awsTreeNodeBase'
 import { ErrorNode } from '../shared/treeview/nodes/errorNode'
 import { showErrorDetails } from '../shared/treeview/webviews/showErrorDetails'
 import { createReactWebview } from '../webviews/reactLoader'
-import { SelectOption, WebviewOutputMessage } from '../webviews/tsx/interfaces/common'
+import { AwsComponentToBackendMessage, SelectOption } from '../webviews/tsx/interfaces/common'
 import { InvokerContext, InvokerState } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
 import { RegionNode } from './regionNode'
@@ -207,7 +207,7 @@ async function registerExperimentalCommand(
 }
 
 async function invokeLambdaExperiment(
-    output: WebviewOutputMessage<InvokerState>,
+    output: AwsComponentToBackendMessage<InvokerState>,
     postMessageFn: (event: Partial<InvokerState>) => Thenable<boolean>,
     context: InvokerContext,
     resourceFetcher: ResourceFetcher
@@ -218,9 +218,9 @@ async function invokeLambdaExperiment(
 
     switch (output.command) {
         case 'sampleRequestSelected':
-            outputChannel.appendLine(`Looking up resource for ${output.message.template}`)
+            outputChannel.appendLine(`Looking up resource for ${output.values.template}`)
             const sample = await resourceFetcher.getResource([
-                new WebResourceLocation(`${sampleRequestPath}${output.message.template}`),
+                new WebResourceLocation(`${sampleRequestPath}${output.values.template}`),
                 new FileResourceLocation(
                     path.join(ext.context.extensionPath, 'resources', 'vs-lambda-sample-request-manifest.xml')
                 )
@@ -243,7 +243,7 @@ async function invokeLambdaExperiment(
                     throw new Error(`Could not determine ARN for function ${fn.configuration.FunctionName}`)
                 }
                 const client: LambdaClient = ext.toolkitClientBuilder.createLambdaClient(fn.regionCode)
-                const funcResponse = await client.invoke(fn.configuration.FunctionArn, output.message.payload!.value)
+                const funcResponse = await client.invoke(fn.configuration.FunctionArn, output.values.payload!.value)
                 const logs = funcResponse.LogResult ? Buffer.from(funcResponse.LogResult, 'base64').toString() : ''
                 const payload = funcResponse.Payload ? funcResponse.Payload : JSON.stringify({})
 

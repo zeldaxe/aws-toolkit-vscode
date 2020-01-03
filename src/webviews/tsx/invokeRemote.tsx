@@ -9,7 +9,7 @@ import * as ReactDOM from 'react-dom'
 import { AwsComponent } from './components/awsComponent'
 import { SelectDropDown } from './components/primitives/selectDropDown'
 import { ValidityInput } from './components/primitives/validityInput'
-import { generateDefaultValidityField, ValidityField, VsCode, VsCodeReactWebviewProp } from './interfaces/common'
+import { generateDefaultValidityField, ValidityField, VsCode } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
 
 declare const vscode: VsCode<InvokerState>
@@ -24,7 +24,7 @@ function generateDefaultInvokerState(): InvokerState {
     }
 }
 
-export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, InvokerState> {
+export class Invoker extends AwsComponent<InvokerState> {
     public render() {
         return (
             <div>

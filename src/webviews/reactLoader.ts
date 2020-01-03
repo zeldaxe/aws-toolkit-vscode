@@ -8,7 +8,7 @@ import * as _ from 'lodash'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
-import { WebviewOutputMessage } from './tsx/interfaces/common'
+import { AwsComponentToBackendMessage } from './tsx/interfaces/common'
 
 export interface reactWebviewParams<State, HandlerContext> {
     id: string
@@ -20,7 +20,7 @@ export interface reactWebviewParams<State, HandlerContext> {
     persistWithoutFocus?: boolean
     handlerContext?: HandlerContext
     onDidReceiveMessageFunction(
-        message: WebviewOutputMessage<State>,
+        message: AwsComponentToBackendMessage<State>,
         postMessageFn: (event: Partial<State>) => Thenable<boolean>,
         params?: HandlerContext
     ): any
@@ -93,7 +93,7 @@ export async function createReactWebview<State, Context>(params: reactWebviewPar
     }
 
     view.webview.onDidReceiveMessage(
-        (message: WebviewOutputMessage<State>) => {
+        (message: AwsComponentToBackendMessage<State>) => {
             params.onDidReceiveMessageFunction(
                 message,
                 response => view.webview.postMessage(response),
