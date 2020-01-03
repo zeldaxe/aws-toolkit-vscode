@@ -8,7 +8,7 @@ import * as ReactDOM from 'react-dom'
 
 import { AwsComponent } from './components/awsComponent'
 import { SelectDropDown } from './components/primitives/selectDropDown'
-import { ValidityTextArea } from './components/primitives/validityTextArea'
+import { ValidityInput } from './components/primitives/validityInput'
 import { generateDefaultValidityField, ValidityField, VsCode, VsCodeReactWebviewProp } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
 
@@ -36,21 +36,18 @@ export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, 
                     name="template"
                     options={this.state.availableTemplates}
                     value={this.state.template}
-                    setState={(key: string, value: string) =>
-                        this.setSingleState<string>(key, value, () =>
-                            this.props.vscode.postMessage({
-                                message: this.state,
-                                command: 'sampleRequestSelected'
-                            })
-                        )
+                    setState={(key: string, value: string, callback: () => void) =>
+                        this.setSingleState<string>(key, value, callback)
                     }
+                    onSelectAction={() => this.postMessageToVsCode('sampleRequestSelected')}
                 />
                 <br />
-                <ValidityTextArea
+                <ValidityInput
                     name="payload"
                     placeholder="JSON Payload"
                     validityField={this.state.payload}
                     setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
+                    isTextArea={true}
                 />
                 <br />
                 <button onClick={e => this.onSubmit(e)}>Submit!</button>
@@ -62,12 +59,9 @@ export class Invoker extends AwsComponent<VsCodeReactWebviewProp<InvokerState>, 
         try {
             // basic client-side validation test. We should probably offload something like this to the controller.
             JSON.parse(this.state.payload.value)
-            this.setSingleState('payload', { ...this.state.payload, isValid: true }, () => {
-                this.props.vscode.postMessage({
-                    message: this.state,
-                    command: 'invokeLambda'
-                })
-            })
+            this.setSingleState('payload', { ...this.state.payload, isValid: true }, () =>
+                this.postMessageToVsCode('invokeLambda')
+            )
         } catch (e) {
             this.setSingleState('payload', { ...this.state.payload, isValid: false })
         }

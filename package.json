@@ -48,8 +48,7 @@
         "onCommand:aws.help",
         "onCommand:aws.github",
         "onView:aws.cdk.explorer",
-        "onCommand:aws.refreshCdkExplorer",
-        "onCommand:aws.reactInvoker"
+        "onCommand:aws.refreshCdkExplorer"
     ],
     "main": "./extensionMain",
     "contributes": {
@@ -307,11 +306,6 @@
             ]
         },
         "commands": [
-            {
-                "command": "aws.reactInvoker",
-                "title": "%AWS.command.reactInvoker%",
-                "category": "AWS"
-            },
             {
                 "command": "aws.lambda.createNewSamApp",
                 "title": "%AWS.command.createNewSamApp%",

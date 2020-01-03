@@ -20,14 +20,20 @@ export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, 
      */
     public abstract render(): JSX.Element
 
-    public componentDidMount() {
+    /**
+     * Sets up VS Code event listener. This should be called by React automatically
+     */
+    public componentDidMount(): void {
         // resetting the state with this.setState to ensure that the state is what we want
         // we know that this.setState works at this point considering the component is now mounted
         this.setState(this.state)
         window.addEventListener('message', event => this.mergeStateWithMessage((event.data as any) as State))
     }
 
-    public componentWillUnmount() {
+    /**
+     * Tears down VS Code event listener. This should be called by React automatically.
+     */
+    public componentWillUnmount(): void {
         window.removeEventListener('message', event => this.mergeStateWithMessage((event.data as any) as State))
     }
 
@@ -40,7 +46,7 @@ export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, 
      * @param state State message to overwrite React state with
      * @param callback Callback function to run AFTER state has been set.
      */
-    public setState(state: State, callback?: () => void) {
+    public setState(state: State, callback?: () => void): void {
         super.setState(state, () => {
             this.props.vscode.setState(this.state)
             if (callback) {
@@ -79,7 +85,7 @@ export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, 
      * @param value Value to insert
      * @param callback Callback function to run AFTER state has been set.
      */
-    protected setSingleState<T>(key: string, value: T, callback?: () => void) {
+    protected setSingleState<T>(key: string, value: T, callback?: () => void): void {
         const typesafeKey = key as keyof State
         this.setState(
             {
@@ -91,10 +97,21 @@ export abstract class AwsComponent<Props extends VsCodeReactWebviewProp<State>, 
     }
 
     /**
+     * Posts the entire state to the VS Code Node backend with the given command name
+     * @param command Command name to send to VS Code
+     */
+    protected postMessageToVsCode(command: string): void {
+        this.props.vscode.postMessage({
+            message: this.state,
+            command: command
+        })
+    }
+
+    /**
      * Handles messaging from VS Code
      * @param message Partial state to merge with current state
      */
-    private mergeStateWithMessage(message: Partial<State>) {
+    private mergeStateWithMessage(message: Partial<State>): void {
         this.setState({ ...this.state, ...message })
     }
 }

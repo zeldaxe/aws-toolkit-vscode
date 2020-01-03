@@ -147,15 +147,10 @@ function createMessageReceivedFunc({
     return async (message: CommandMessage) => {
         switch (message.command) {
             case 'sampleRequestSelected':
-                logger.info('selected the following sample:')
-                logger.info(String(message.value))
-
                 const sample = await restParams.resourceFetcher.getResource([
                     new WebResourceLocation(`${sampleRequestPath}${message.value}`),
                     new FileResourceLocation(restParams.resourcePath)
                 ])
-
-                logger.info(sample)
 
                 restParams.onPostMessage({ command: 'loadedSample', sample: sample })
 

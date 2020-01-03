@@ -10,7 +10,8 @@ export interface SelectDropDownProps {
     options: SelectOption[]
     value: string
     name: string
-    setState(key: string, value: string): void
+    setState(key: string, value: string, callback?: () => void): void
+    onSelectAction?(): void
 }
 
 export class SelectDropDown extends React.Component<SelectDropDownProps, {}> {
@@ -30,6 +31,6 @@ export class SelectDropDown extends React.Component<SelectDropDownProps, {}> {
 
     private onSelect(event: React.ChangeEvent<HTMLSelectElement>) {
         const target = event.target
-        this.props.setState(target.name, target.value)
+        this.props.setState(target.name, target.value, this.props.onSelectAction)
     }
 }

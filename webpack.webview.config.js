@@ -4,8 +4,6 @@ module.exports = {
     mode: 'production',
 
     entry: {
-        helloWorld: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'index.tsx'),
-        create: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'create.tsx'),
         invokeRemote: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'invokeRemote.tsx')
     },
     output: {
