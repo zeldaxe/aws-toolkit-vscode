@@ -27,7 +27,11 @@ import { AWSTreeNodeBase } from '../shared/treeview/nodes/awsTreeNodeBase'
 import { ErrorNode } from '../shared/treeview/nodes/errorNode'
 import { showErrorDetails } from '../shared/treeview/webviews/showErrorDetails'
 import { createReactWebview } from '../webviews/reactLoader'
-import { AwsComponentToBackendMessage, SelectOption } from '../webviews/tsx/interfaces/common'
+import {
+    AwsComponentToBackendMessage,
+    BackendToAwsComponentMessage,
+    SelectOption
+} from '../webviews/tsx/interfaces/common'
 import { InvokerContext, InvokerState } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
 import { RegionNode } from './regionNode'
@@ -188,14 +192,16 @@ async function registerExperimentalCommand(
                 onDidDisposeFunction: () => {},
                 context,
                 initialState: {
-                    region: node.regionCode,
-                    lambda: node.configuration.FunctionName || '',
-                    payload: {
-                        value: '{}',
-                        isValid: true
-                    },
-                    template: '',
-                    availableTemplates
+                    values: {
+                        region: node.regionCode,
+                        lambda: node.configuration.FunctionName || '',
+                        payload: {
+                            value: '{}',
+                            isValid: true
+                        },
+                        template: '',
+                        availableTemplates
+                    }
                 }
             })
         },
@@ -208,7 +214,7 @@ async function registerExperimentalCommand(
 
 async function invokeLambdaExperiment(
     output: AwsComponentToBackendMessage<InvokerState>,
-    postMessageFn: (event: Partial<InvokerState>) => Thenable<boolean>,
+    postMessageFn: (event: BackendToAwsComponentMessage<InvokerState>) => Thenable<boolean>,
     context: InvokerContext,
     resourceFetcher: ResourceFetcher
 ) {
@@ -228,9 +234,11 @@ async function invokeLambdaExperiment(
             outputChannel.appendLine(`found output: ${sample}`)
 
             postMessageFn({
-                payload: {
-                    value: sample,
-                    isValid: true
+                values: {
+                    payload: {
+                        value: sample,
+                        isValid: true
+                    }
                 }
             })
 

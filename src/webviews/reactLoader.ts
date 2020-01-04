@@ -8,20 +8,20 @@ import * as _ from 'lodash'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
-import { AwsComponentToBackendMessage } from './tsx/interfaces/common'
+import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './tsx/interfaces/common'
 
 export interface reactWebviewParams<State, HandlerContext> {
     id: string
     name: string
     webviewJs: string
     context: vscode.ExtensionContext
-    initialState?: State
+    initialState?: BackendToAwsComponentMessage<State>
     persistSessions?: boolean
     persistWithoutFocus?: boolean
     handlerContext?: HandlerContext
     onDidReceiveMessageFunction(
         message: AwsComponentToBackendMessage<State>,
-        postMessageFn: (event: Partial<State>) => Thenable<boolean>,
+        postMessageFn: (event: BackendToAwsComponentMessage<State>) => Thenable<boolean>,
         params?: HandlerContext
     ): any
     onDidDisposeFunction(): any

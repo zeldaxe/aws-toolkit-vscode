@@ -9,18 +9,24 @@ import * as ReactDOM from 'react-dom'
 import { AwsComponent } from './components/awsComponent'
 import { SelectDropDown } from './components/primitives/selectDropDown'
 import { ValidityInput } from './components/primitives/validityInput'
-import { generateDefaultValidityField, ValidityField, VsCode } from './interfaces/common'
+import { AwsComponentState, generateDefaultValidityField, ValidityField, VsCode } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
 
 declare const vscode: VsCode<InvokerState>
 
-function generateDefaultInvokerState(): InvokerState {
+function generateDefaultInvokerState(): AwsComponentState<InvokerState> {
     return {
-        lambda: '',
-        payload: generateDefaultValidityField(),
-        region: '',
-        template: '',
-        availableTemplates: []
+        values: {
+            lambda: '',
+            payload: generateDefaultValidityField(),
+            region: '',
+            template: '',
+            availableTemplates: []
+        },
+        invalidFields: new Set<keyof InvokerState>(),
+        inactiveFields: new Set<keyof InvokerState>(),
+        loadingFields: new Set<keyof InvokerState>(),
+        hiddenFields: new Set<keyof InvokerState>()
     }
 }
 
@@ -29,15 +35,15 @@ export class Invoker extends AwsComponent<InvokerState> {
         return (
             <div>
                 <h1>
-                    Calling Lambda function: {this.state.lambda} in Region: {this.state.region}
+                    Calling Lambda function: {this.state.values.lambda} in Region: {this.state.values.region}
                 </h1>
                 <br />
                 <SelectDropDown
                     name="template"
-                    options={this.state.availableTemplates}
-                    value={this.state.template}
+                    options={this.state.values.availableTemplates}
+                    value={this.state.values.template}
                     setState={(key: string, value: string, callback: () => void) =>
-                        this.setSingleState<string>(key, value, callback)
+                        this.setSingleValueInState<string>(key, value, callback)
                     }
                     onSelectAction={() => this.postMessageToVsCode('sampleRequestSelected')}
                 />
@@ -45,8 +51,10 @@ export class Invoker extends AwsComponent<InvokerState> {
                 <ValidityInput
                     name="payload"
                     placeholder="JSON Payload"
-                    validityField={this.state.payload}
-                    setState={(key: string, value: ValidityField) => this.setSingleState<ValidityField>(key, value)}
+                    validityField={this.state.values.payload}
+                    setState={(key: string, value: ValidityField) =>
+                        this.setSingleValueInState<ValidityField>(key, value)
+                    }
                     isTextArea={true}
                 />
                 <br />
@@ -58,12 +66,12 @@ export class Invoker extends AwsComponent<InvokerState> {
     private onSubmit(event: React.MouseEvent) {
         try {
             // basic client-side validation test. We should probably offload something like this to the controller.
-            JSON.parse(this.state.payload.value)
-            this.setSingleState('payload', { ...this.state.payload, isValid: true }, () =>
+            JSON.parse(this.state.values.payload.value)
+            this.setSingleValueInState('payload', { ...this.state.values.payload, isValid: true }, () =>
                 this.postMessageToVsCode('invokeLambda')
             )
         } catch (e) {
-            this.setSingleState('payload', { ...this.state.payload, isValid: false })
+            this.setSingleValueInState('payload', { ...this.state.values.payload, isValid: false })
         }
     }
 }
