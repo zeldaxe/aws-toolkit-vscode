@@ -232,7 +232,15 @@ async function invokeLambdaExperiment(
                 values: {
                     payload: sample
                 },
-                invalidFields: []
+                inactiveFields: {
+                    remove: ['payload', 'template']
+                },
+                loadingFields: {
+                    remove: ['payload']
+                },
+                invalidFields: {
+                    remove: ['payload']
+                }
             })
 
             return

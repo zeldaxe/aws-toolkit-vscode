@@ -4,13 +4,10 @@
  */
 
 import * as React from 'react'
+import { generateClassString, SubComponentProps } from '../../interfaces/common'
 
-export interface InputProps {
+export interface InputProps extends SubComponentProps {
     value: string | number
-    isInactive?: boolean
-    isInvalid?: boolean
-    isHidden?: boolean
-    isLoading?: boolean
     name: string
     placeholder: string
     setState(key: string, value: string | number): void
@@ -19,19 +16,13 @@ export interface InputProps {
 
 export class Input extends React.Component<InputProps, {}> {
     public render() {
-        const classString =
-            `${this.props.isInvalid ? 'invalid' : 'valid'}` +
-            ` ${this.props.isInactive ? 'inactive' : 'active'}` +
-            ` ${this.props.isHidden ? 'hidden' : 'unhidden'}` +
-            ` ${this.props.isLoading ? 'loading' : 'loaded'}`
-
         return (
             <input
                 name={this.props.name}
                 placeholder={this.props.placeholder}
                 value={this.props.value}
                 onChange={event => this.updateParentStateAndCallback(event, this.props.onChangeAction)}
-                className={classString}
+                className={generateClassString(this.props)}
             />
         )
     }

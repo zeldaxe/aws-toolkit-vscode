@@ -4,7 +4,13 @@
  */
 
 import React = require('react')
-import { AwsComponentState, BackendToAwsComponentMessage, VsCodeReactWebviewProp } from '../interfaces/common'
+import {
+    AwsComponentState,
+    BackendAlteredFields,
+    BackendToAwsComponentMessage,
+    VsCodeReactWebviewProp,
+    VsCodeRetainedState
+} from '../interfaces/common'
 
 export abstract class AwsComponent<State> extends React.Component<
     VsCodeReactWebviewProp<State>,
@@ -73,7 +79,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * @param defaultState Default webview state if no other states exist
      */
     protected setExistingState(defaultState: AwsComponentState<State>): void {
-        const message = this.props.vscode.getState() as BackendToAwsComponentMessage<State>
+        const message = this.props.vscode.getState() as VsCodeRetainedState<State>
         // Writes directly to state because this is called before the component is mounted (so this.setState cannot be called)
         // We will update the state with this.setState(this.state) in the componentDidMount function
         if (message) {
@@ -207,23 +213,37 @@ export abstract class AwsComponent<State> extends React.Component<
      */
     private generateStateFromMessage(message: BackendToAwsComponentMessage<State>): void {
         this.setState({
-            invalidFields: message.invalidFields
-                ? new Set<keyof State>([...this.state.invalidFields, ...message.invalidFields])
-                : this.state.invalidFields,
-            inactiveFields: message.inactiveFields
-                ? new Set<keyof State>([...this.state.inactiveFields, ...message.inactiveFields])
-                : this.state.inactiveFields,
-            loadingFields: message.loadingFields
-                ? new Set<keyof State>([...this.state.loadingFields, ...message.loadingFields])
-                : this.state.loadingFields,
-            hiddenFields: message.hiddenFields
-                ? new Set<keyof State>([...this.state.hiddenFields, ...message.hiddenFields])
-                : this.state.hiddenFields,
+            ...this.state,
             values: {
                 ...this.state.values,
                 ...message.values
             }
         })
+        if (message.loadingFields) {
+            this.handleBackendAlteredFields('loadingFields', message.loadingFields)
+        }
+        if (message.invalidFields) {
+            this.handleBackendAlteredFields('invalidFields', message.invalidFields)
+        }
+        if (message.inactiveFields) {
+            this.handleBackendAlteredFields('inactiveFields', message.inactiveFields)
+        }
+    }
+
+    private handleBackendAlteredFields(
+        set: keyof AwsComponentState<State>,
+        alteredFields: BackendAlteredFields<State>
+    ) {
+        if (alteredFields.add) {
+            for (const field of alteredFields.add) {
+                this.addFieldToSet(set, field)
+            }
+        }
+        if (alteredFields.remove) {
+            for (const field of alteredFields.remove) {
+                this.removeFieldFromSet(set, field)
+            }
+        }
     }
 
     private addFieldToSet(set: keyof AwsComponentState<State>, field: keyof State) {

@@ -46,8 +46,9 @@ export class Invoker extends AwsComponent<InvokerState> {
                     setState={(key: string, value: string, callback: () => void) =>
                         this.setSingleValueInState<string>(key, value, callback)
                     }
-                    onSelectAction={() => this.postMessageToVsCode('sampleRequestSelected')}
+                    onSelectAction={() => this.onSelectTemplate()}
                     placeholder="Templates"
+                    isInactive={this.state.inactiveFields.has('template')}
                 />
                 <br />
                 <h3>JSON Payload</h3>
@@ -57,6 +58,8 @@ export class Invoker extends AwsComponent<InvokerState> {
                     value={this.state.values.payload}
                     setState={(key: string, value: string) => this.setSingleValueInState<string>(key, value)}
                     isInvalid={this.state.invalidFields.has('payload')}
+                    isInactive={this.state.inactiveFields.has('payload')}
+                    isLoading={this.state.loadingFields.has('payload')}
                     rows={20}
                     cols={75}
                 />
@@ -64,6 +67,13 @@ export class Invoker extends AwsComponent<InvokerState> {
                 <button onClick={e => this.onSubmit(e)}>Submit!</button>
             </div>
         )
+    }
+
+    private onSelectTemplate() {
+        this.addInactiveField('template')
+        this.addInactiveField('payload')
+        this.addLoadingField('payload')
+        this.postMessageToVsCode('sampleRequestSelected')
     }
 
     private onSubmit(event: React.MouseEvent) {

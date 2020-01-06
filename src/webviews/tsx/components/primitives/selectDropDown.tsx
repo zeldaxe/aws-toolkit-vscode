@@ -4,9 +4,9 @@
  */
 
 import * as React from 'react'
-import { SelectOption } from '../../interfaces/common'
+import { generateClassString, SelectOption, SubComponentProps } from '../../interfaces/common'
 
-export interface SelectDropDownProps {
+export interface SelectDropDownProps extends SubComponentProps {
     options: SelectOption[]
     value: string
     name: string
@@ -27,21 +27,25 @@ export class SelectDropDown extends React.Component<SelectDropDownProps, {}> {
         const options: JSX.Element[] = []
 
         options.push(
-            <option value={DEFAULT_PLACEHOLDER} id={DEFAULT_PLACEHOLDER}>
+            <option value={DEFAULT_PLACEHOLDER} key={DEFAULT_PLACEHOLDER}>
                 {this.props.placeholder}
             </option>
         )
 
         for (const option of this.props.options) {
-            options.push(<option value={option.value}>{option.displayName}</option>)
+            options.push(
+                <option key={option.value} value={option.value}>
+                    {option.displayName}
+                </option>
+            )
         }
 
         return (
             <select
-                id={this.props.value}
                 name={this.props.name}
                 value={this.props.value}
                 onChange={e => this.onSelect(e)}
+                className={generateClassString(this.props)}
             >
                 {options}
             </select>

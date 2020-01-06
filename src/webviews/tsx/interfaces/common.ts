@@ -11,8 +11,8 @@
  */
 export interface VsCode<Values> {
     postMessage(output: AwsComponentToBackendMessage<Values>): void
-    setState(state: BackendToAwsComponentMessage<Values>): void
-    getState(): BackendToAwsComponentMessage<Values>
+    setState(state: VsCodeRetainedState<Values>): void
+    getState(): VsCodeRetainedState<Values>
 }
 
 export interface AwsComponentState<Values> {
@@ -29,6 +29,18 @@ export interface AwsComponentToBackendMessage<Values> {
 }
 
 export interface BackendToAwsComponentMessage<Values> {
+    values: Partial<Values>
+    loadingFields?: BackendAlteredFields<Values>
+    invalidFields?: BackendAlteredFields<Values>
+    inactiveFields?: BackendAlteredFields<Values>
+}
+
+export interface BackendAlteredFields<Values> {
+    add?: Array<keyof Values>
+    remove?: Array<keyof Values>
+}
+
+export interface VsCodeRetainedState<Values> {
     values: Partial<Values>
     invalidFields?: Array<keyof Values>
     inactiveFields?: Array<keyof Values>
@@ -48,4 +60,23 @@ export interface VsCodeReactWebviewProp<Values> {
 export interface SelectOption {
     displayName: string
     value: string
+}
+
+export interface SubComponentProps {
+    isInactive?: boolean
+    isInvalid?: boolean
+    isHidden?: boolean
+    isLoading?: boolean
+}
+/**
+ * Generates a class string based on field validity, isActive, visibility, and isLoading
+ * @param props Props that extend SubComponentProps
+ */
+export function generateClassString(props: SubComponentProps): string {
+    return (
+        `${props.isInvalid ? 'invalid' : 'valid'}` +
+        ` ${props.isInactive ? 'inactive' : 'active'}` +
+        ` ${props.isHidden ? 'hidden' : 'unhidden'}` +
+        ` ${props.isLoading ? 'loading' : 'loaded'}`
+    )
 }
