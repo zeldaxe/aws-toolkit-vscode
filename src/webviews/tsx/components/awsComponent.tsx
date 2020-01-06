@@ -91,7 +91,7 @@ export abstract class AwsComponent<State> extends React.Component<
                     ? new Set<keyof State>(message.hiddenFields)
                     : new Set<keyof State>(),
                 values: {
-                    ...this.state.values,
+                    ...defaultState.values,
                     ...message.values
                 }
             }
