@@ -195,10 +195,7 @@ async function registerExperimentalCommand(
                     values: {
                         region: node.regionCode,
                         lambda: node.configuration.FunctionName || '',
-                        payload: {
-                            value: '{}',
-                            isValid: true
-                        },
+                        payload: '{}',
                         template: '',
                         availableTemplates
                     }
@@ -224,22 +221,18 @@ async function invokeLambdaExperiment(
 
     switch (output.command) {
         case 'sampleRequestSelected':
-            outputChannel.appendLine(`Looking up resource for ${output.values.template}`)
             const sample = await resourceFetcher.getResource([
                 new WebResourceLocation(`${sampleRequestPath}${output.values.template}`),
                 new FileResourceLocation(
                     path.join(ext.context.extensionPath, 'resources', 'vs-lambda-sample-request-manifest.xml')
                 )
             ])
-            outputChannel.appendLine(`found output: ${sample}`)
 
             postMessageFn({
                 values: {
-                    payload: {
-                        value: sample,
-                        isValid: true
-                    }
-                }
+                    payload: sample
+                },
+                invalidFields: []
             })
 
             return
@@ -251,7 +244,7 @@ async function invokeLambdaExperiment(
                     throw new Error(`Could not determine ARN for function ${fn.configuration.FunctionName}`)
                 }
                 const client: LambdaClient = ext.toolkitClientBuilder.createLambdaClient(fn.regionCode)
-                const funcResponse = await client.invoke(fn.configuration.FunctionArn, output.values.payload!.value)
+                const funcResponse = await client.invoke(fn.configuration.FunctionArn, output.values.payload)
                 const logs = funcResponse.LogResult ? Buffer.from(funcResponse.LogResult, 'base64').toString() : ''
                 const payload = funcResponse.Payload ? funcResponse.Payload : JSON.stringify({})
 

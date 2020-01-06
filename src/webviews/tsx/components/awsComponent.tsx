@@ -80,16 +80,16 @@ export abstract class AwsComponent<State> extends React.Component<
             this.state = {
                 invalidFields: message.invalidFields
                     ? new Set<keyof State>(message.invalidFields)
-                    : new Set<keyof State>(),
+                    : defaultState.invalidFields,
                 inactiveFields: message.inactiveFields
                     ? new Set<keyof State>(message.inactiveFields)
-                    : new Set<keyof State>(),
+                    : defaultState.inactiveFields,
                 loadingFields: message.loadingFields
                     ? new Set<keyof State>(message.loadingFields)
-                    : new Set<keyof State>(),
+                    : defaultState.loadingFields,
                 hiddenFields: message.hiddenFields
                     ? new Set<keyof State>(message.hiddenFields)
-                    : new Set<keyof State>(),
+                    : defaultState.hiddenFields,
                 values: {
                     ...defaultState.values,
                     ...message.values

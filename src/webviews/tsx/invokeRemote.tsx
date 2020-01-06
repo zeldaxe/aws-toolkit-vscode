@@ -8,8 +8,8 @@ import * as ReactDOM from 'react-dom'
 
 import { AwsComponent } from './components/awsComponent'
 import { SelectDropDown } from './components/primitives/selectDropDown'
-import { ValidityInput } from './components/primitives/validityInput'
-import { AwsComponentState, generateDefaultValidityField, ValidityField, VsCode } from './interfaces/common'
+import { TextArea } from './components/primitives/textArea'
+import { AwsComponentState, VsCode } from './interfaces/common'
 import { InvokerState } from './interfaces/invoker'
 
 declare const vscode: VsCode<InvokerState>
@@ -18,7 +18,7 @@ function generateDefaultInvokerState(): AwsComponentState<InvokerState> {
     return {
         values: {
             lambda: '',
-            payload: generateDefaultValidityField(),
+            payload: '',
             region: '',
             template: '',
             availableTemplates: []
@@ -38,6 +38,7 @@ export class Invoker extends AwsComponent<InvokerState> {
                     Calling Lambda function: {this.state.values.lambda} in Region: {this.state.values.region}
                 </h1>
                 <br />
+                <h3>Enter a JSON payload (or select a template from the list below)</h3>
                 <SelectDropDown
                     name="template"
                     options={this.state.values.availableTemplates}
@@ -46,16 +47,18 @@ export class Invoker extends AwsComponent<InvokerState> {
                         this.setSingleValueInState<string>(key, value, callback)
                     }
                     onSelectAction={() => this.postMessageToVsCode('sampleRequestSelected')}
+                    placeholder="Templates"
                 />
                 <br />
-                <ValidityInput
+                <h3>JSON Payload</h3>
+                <TextArea
                     name="payload"
                     placeholder="JSON Payload"
-                    validityField={this.state.values.payload}
-                    setState={(key: string, value: ValidityField) =>
-                        this.setSingleValueInState<ValidityField>(key, value)
-                    }
-                    isTextArea={true}
+                    value={this.state.values.payload}
+                    setState={(key: string, value: string) => this.setSingleValueInState<string>(key, value)}
+                    isInvalid={this.state.invalidFields.has('payload')}
+                    rows={20}
+                    cols={75}
                 />
                 <br />
                 <button onClick={e => this.onSubmit(e)}>Submit!</button>
@@ -66,12 +69,13 @@ export class Invoker extends AwsComponent<InvokerState> {
     private onSubmit(event: React.MouseEvent) {
         try {
             // basic client-side validation test. We should probably offload something like this to the controller.
-            JSON.parse(this.state.values.payload.value)
-            this.setSingleValueInState('payload', { ...this.state.values.payload, isValid: true }, () =>
+            JSON.parse(this.state.values.payload)
+            this.removeInvalidField('payload')
+            this.setSingleValueInState('payload', this.state.values.payload, () =>
                 this.postMessageToVsCode('invokeLambda')
             )
         } catch (e) {
-            this.setSingleValueInState('payload', { ...this.state.values.payload, isValid: false })
+            this.addInvalidField('payload')
         }
     }
 }
