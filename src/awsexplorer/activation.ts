@@ -220,6 +220,22 @@ async function invokeLambdaExperiment(
     outputChannel.show()
 
     switch (output.command) {
+        case 'daBomb':
+            for (let i = 30; i >= 0; i--) {
+                await new Promise<void>(resolve => {
+                    setTimeout(() => {
+                        postMessageFn({
+                            values: {
+                                payload: i > 0 ? i.toString() : 'Boom!'
+                            }
+                        })
+                        resolve()
+                    }, 1000)
+                })
+            }
+
+            return
+
         case 'sampleRequestSelected':
             const sample = await resourceFetcher.getResource([
                 new WebResourceLocation(`${sampleRequestPath}${output.values.template}`),

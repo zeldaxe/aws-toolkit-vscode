@@ -9,7 +9,7 @@ import * as ReactDOM from 'react-dom'
 import { AwsComponent } from './components/awsComponent'
 import { SelectDropDown } from './components/primitives/selectDropDown'
 import { TextArea } from './components/primitives/textArea'
-import { AwsComponentState, VsCode } from './interfaces/common'
+import { AwsComponentState, BackendToAwsComponentMessage, VsCode } from './interfaces/common'
 import { InvokerValues } from './interfaces/invoker'
 
 declare const vscode: VsCode<InvokerValues>
@@ -65,8 +65,16 @@ export class Invoker extends AwsComponent<InvokerValues> {
                 />
                 <br />
                 <button onClick={e => this.onSubmit(e)}>Submit!</button>
+                <button onClick={e => this.daBomb(e)}>Light da bomb!</button>
             </div>
         )
+    }
+
+    protected generateStateFromMessage(message: BackendToAwsComponentMessage<InvokerValues>) {
+        const curr = this.state.values.payload
+        const incoming = message.values.payload || 'Missing!'
+        super.generateStateFromMessage(message)
+        this.setSingleValueInState('payload', `${curr}\n${incoming} : ${Date.now()}`)
     }
 
     private onSelectTemplate() {
@@ -87,6 +95,10 @@ export class Invoker extends AwsComponent<InvokerValues> {
         } catch (e) {
             this.addInvalidField('payload')
         }
+    }
+
+    private daBomb(event: React.MouseEvent) {
+        this.postMessageToVsCode('daBomb')
     }
 }
 
