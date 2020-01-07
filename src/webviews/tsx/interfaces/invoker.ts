@@ -8,7 +8,7 @@ import * as vscode from 'vscode'
 import { LambdaFunctionNode } from '../../../lambda/explorer/lambdaFunctionNode'
 import { SelectOption } from './common'
 
-export interface InvokerState {
+export interface InvokerValues {
     region: string
     lambda: string
     template: string

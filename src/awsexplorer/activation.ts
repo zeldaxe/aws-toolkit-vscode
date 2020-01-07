@@ -32,7 +32,7 @@ import {
     BackendToAwsComponentMessage,
     SelectOption
 } from '../webviews/tsx/interfaces/common'
-import { InvokerContext, InvokerState } from '../webviews/tsx/interfaces/invoker'
+import { InvokerContext, InvokerValues } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
 import { RegionNode } from './regionNode'
 
@@ -182,7 +182,7 @@ async function registerExperimentalCommand(
                 }
             })
 
-            await createReactWebview<InvokerState, InvokerContext>({
+            await createReactWebview<InvokerValues, InvokerContext>({
                 id: 'invoke',
                 name: 'Sample Invoker!',
                 webviewJs: 'invokeRemote.js',
@@ -210,8 +210,8 @@ async function registerExperimentalCommand(
 }
 
 async function invokeLambdaExperiment(
-    output: AwsComponentToBackendMessage<InvokerState>,
-    postMessageFn: (event: BackendToAwsComponentMessage<InvokerState>) => Thenable<boolean>,
+    output: AwsComponentToBackendMessage<InvokerValues>,
+    postMessageFn: (event: BackendToAwsComponentMessage<InvokerValues>) => Thenable<boolean>,
     context: InvokerContext,
     resourceFetcher: ResourceFetcher
 ) {
