@@ -256,7 +256,7 @@ async function invokeLambdaExperiment(
                 const logs = funcResponse.LogResult ? Buffer.from(funcResponse.LogResult, 'base64').toString() : ''
                 const payload = funcResponse.Payload ? funcResponse.Payload : JSON.stringify({})
 
-                outputChannel.appendLine(`Invocation resu5lt for ${fn.configuration.FunctionArn}`)
+                outputChannel.appendLine(`Invocation result for ${fn.configuration.FunctionArn}`)
                 outputChannel.appendLine('Logs:')
                 outputChannel.appendLine(logs)
                 outputChannel.appendLine('')

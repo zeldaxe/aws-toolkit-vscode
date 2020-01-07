@@ -10,31 +10,30 @@ export interface InputProps extends SubComponentProps {
     value: string | number
     name: string
     placeholder: string
-    setState(key: string, value: string | number): void
+    setState(key: string, value: string | number, callback?: () => void): void
     onChangeAction?(): void
 }
 
-export class Input extends React.Component<InputProps, {}> {
-    public render() {
-        return (
-            <input
-                name={this.props.name}
-                placeholder={this.props.placeholder}
-                value={this.props.value}
-                onChange={event => this.updateParentStateAndCallback(event, this.props.onChangeAction)}
-                className={generateClassString(this.props)}
-            />
-        )
-    }
+export function Input(props: InputProps) {
+    return (
+        <input
+            name={props.name}
+            placeholder={props.placeholder}
+            value={props.value}
+            onChange={event => updateParentStateAndCallback(event, props)}
+            className={generateClassString(props)}
+        />
+    )
+}
 
-    private updateParentStateAndCallback(
-        event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-        callback?: () => void
-    ) {
-        const target = event.target
-        this.props.setState(target.name, target.value)
-        if (callback) {
-            callback()
+function updateParentStateAndCallback(
+    event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
+    props: InputProps
+) {
+    const target = event.target
+    props.setState(target.name, target.value, () => {
+        if (props.onChangeAction) {
+            props.onChangeAction()
         }
-    }
+    })
 }

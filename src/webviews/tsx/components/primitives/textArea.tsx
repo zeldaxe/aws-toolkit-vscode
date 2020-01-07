@@ -12,46 +12,17 @@ export interface TextAreaProps extends SubComponentProps {
     placeholder: string
     rows?: number
     cols?: number
-    setState(key: string, value: string | number): void
+    setState(key: string, value: string | number, callback?: () => void): void
     onChangeAction?(): void
 }
 
-export class TextArea extends React.Component<TextAreaProps, {}> {
-    public render() {
-        return (
-            <textarea
-                name={this.props.name}
-                placeholder={this.props.placeholder}
-                value={this.props.value}
-                onChange={event => this.updateParentStateAndCallback(event, this.props.onChangeAction)}
-                className={generateClassString(this.props)}
-                rows={this.props.rows}
-                cols={this.props.cols}
-            />
-        )
-    }
-
-    private updateParentStateAndCallback(
-        event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-        callback?: () => void
-    ) {
-        const target = event.target
-        this.props.setState(target.name, target.value)
-        if (callback) {
-            callback()
-        }
-    }
-}
-
-export function NewTextArea(props: TextAreaProps) {
-    const callback = props.onChangeAction
-
+export function TextArea(props: TextAreaProps) {
     return (
         <textarea
             name={props.name}
             placeholder={props.placeholder}
             value={props.value}
-            onChange={event => updateParentStateAndCallback(event, props, callback)}
+            onChange={event => updateParentStateAndCallback(event, props)}
             className={generateClassString(props)}
             rows={props.rows}
             cols={props.cols}
@@ -61,12 +32,12 @@ export function NewTextArea(props: TextAreaProps) {
 
 function updateParentStateAndCallback(
     event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-    props: TextAreaProps,
-    callback?: () => void
+    props: TextAreaProps
 ) {
     const target = event.target
-    props.setState(target.name, target.value)
-    if (callback) {
-        callback()
-    }
+    props.setState(target.name, target.value, () => {
+        if (props.onChangeAction) {
+            props.onChangeAction()
+        }
+    })
 }

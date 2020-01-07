@@ -60,3 +60,45 @@ export class SelectDropDown extends React.Component<SelectDropDownProps, {}> {
         }
     }
 }
+
+export function NewSelectDropDown(props: SelectDropDownProps) {
+    props.setState(name, DEFAULT_PLACEHOLDER)
+    const options: JSX.Element[] = []
+
+    options.push(
+        <option value={DEFAULT_PLACEHOLDER} key={DEFAULT_PLACEHOLDER}>
+            {props.placeholder}
+        </option>
+    )
+
+    for (const option of props.options) {
+        options.push(
+            <option key={option.value} value={option.value}>
+                {option.displayName}
+            </option>
+        )
+    }
+
+    return (
+        <select
+            name={props.name}
+            value={props.value}
+            onChange={event => onSelect(event, props)}
+            className={generateClassString(props)}
+        >
+            {options}
+        </select>
+    )
+}
+
+function onSelect(event: React.ChangeEvent<HTMLSelectElement>, props: SelectDropDownProps) {
+    const target = event.target
+    // TODO: React won't let me disable the placeholder and have it initially selected. If you know how to do this, we can remove this line!
+    if (target.value !== DEFAULT_PLACEHOLDER) {
+        props.setState(target.name, target.value, () => {
+            if (props.onSelectAction) {
+                props.onSelectAction()
+            }
+        })
+    }
+}
