@@ -12,11 +12,22 @@ import {
     VsCodeRetainedState
 } from '../interfaces/common'
 
-export abstract class AwsComponent<State> extends React.Component<
-    VsCodeReactWebviewProp<State>,
-    AwsComponentState<State>
+/**
+ * Generic top-level class for AWS React Components
+ * This class offers the following functionality:
+ * * Typesafe React state handling and handling of VS Code Webview API functions
+ *   * Includes support for VS Code get/setState for persisting a webview if it loses focus
+ * * Typesafe parent state setters for child components
+ * * General field state handling: can mark fields tied to values as: hidden, inactive, invalid, loading
+ *   * (child components need to implement how the states are displayed; this just handles coordination)
+ *
+ * @type Values: A list of values that will be reflected in the AWS Component's state
+ */
+export abstract class AwsComponent<Values> extends React.Component<
+    VsCodeReactWebviewProp<Values>,
+    AwsComponentState<Values>
 > {
-    public constructor(props: VsCodeReactWebviewProp<State>) {
+    public constructor(props: VsCodeReactWebviewProp<Values>) {
         super(props)
         this.setExistingState(this.props.defaultState)
     }
@@ -34,7 +45,7 @@ export abstract class AwsComponent<State> extends React.Component<
         // we know that this.setState works at this point considering the component is now mounted
         this.setState(this.state)
         window.addEventListener('message', event =>
-            this.generateStateFromMessage((event.data as any) as BackendToAwsComponentMessage<State>)
+            this.generateStateFromMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
         )
     }
 
@@ -43,7 +54,7 @@ export abstract class AwsComponent<State> extends React.Component<
      */
     public componentWillUnmount(): void {
         window.removeEventListener('message', event =>
-            this.generateStateFromMessage((event.data as any) as BackendToAwsComponentMessage<State>)
+            this.generateStateFromMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
         )
     }
 
@@ -56,7 +67,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * @param state State message to overwrite React state with
      * @param callback Callback function to run AFTER state has been set.
      */
-    public setState(state: AwsComponentState<State>, callback?: () => void): void {
+    public setState(state: AwsComponentState<Values>, callback?: () => void): void {
         super.setState(state, () => {
             this.props.vscode.setState({
                 inactiveFields: Array.from(this.state.inactiveFields),
@@ -78,23 +89,23 @@ export abstract class AwsComponent<State> extends React.Component<
      * Note that this function does not handle a state that is messaged in as the event listener is not initialized.
      * @param defaultState Default webview state if no other states exist
      */
-    protected setExistingState(defaultState: AwsComponentState<State>): void {
-        const message = this.props.vscode.getState() as VsCodeRetainedState<State>
+    protected setExistingState(defaultState: AwsComponentState<Values>): void {
+        const message = this.props.vscode.getState() as VsCodeRetainedState<Values>
         // Writes directly to state because this is called before the component is mounted (so this.setState cannot be called)
         // We will update the state with this.setState(this.state) in the componentDidMount function
         if (message) {
             this.state = {
                 invalidFields: message.invalidFields
-                    ? new Set<keyof State>(message.invalidFields)
+                    ? new Set<keyof Values>(message.invalidFields)
                     : defaultState.invalidFields,
                 inactiveFields: message.inactiveFields
-                    ? new Set<keyof State>(message.inactiveFields)
+                    ? new Set<keyof Values>(message.inactiveFields)
                     : defaultState.inactiveFields,
                 loadingFields: message.loadingFields
-                    ? new Set<keyof State>(message.loadingFields)
+                    ? new Set<keyof Values>(message.loadingFields)
                     : defaultState.loadingFields,
                 hiddenFields: message.hiddenFields
-                    ? new Set<keyof State>(message.hiddenFields)
+                    ? new Set<keyof Values>(message.hiddenFields)
                     : defaultState.hiddenFields,
                 values: {
                     ...defaultState.values,
@@ -119,7 +130,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * @param callback Callback function to run AFTER state has been set.
      */
     protected setSingleValueInState<T>(key: string, value: T, callback?: () => void): void {
-        const typesafeKey = key as keyof State
+        const typesafeKey = key as keyof Values
         this.setState(
             {
                 ...this.state,
@@ -136,7 +147,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Adds field to invalidFields set
      * @param field field to add
      */
-    protected addInvalidField(field: keyof State): void {
+    protected addInvalidField(field: keyof Values): void {
         this.addFieldToSet('invalidFields', field)
     }
 
@@ -144,7 +155,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Removes field from invalidFields set
      * @param field field to remove
      */
-    protected removeInvalidField(field: keyof State): void {
+    protected removeInvalidField(field: keyof Values): void {
         this.removeFieldFromSet('invalidFields', field)
     }
 
@@ -152,7 +163,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Adds field to inactiveFields set
      * @param field field to add
      */
-    protected addInactiveField(field: keyof State): void {
+    protected addInactiveField(field: keyof Values): void {
         this.addFieldToSet('inactiveFields', field)
     }
 
@@ -160,7 +171,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Removes field from inactiveFields set
      * @param field field to remove
      */
-    protected removeInactiveField(field: keyof State): void {
+    protected removeInactiveField(field: keyof Values): void {
         this.removeFieldFromSet('inactiveFields', field)
     }
 
@@ -168,7 +179,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Adds field to loadingFields set
      * @param field field to add
      */
-    protected addLoadingField(field: keyof State): void {
+    protected addLoadingField(field: keyof Values): void {
         this.addFieldToSet('loadingFields', field)
     }
 
@@ -176,7 +187,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Removes field from loadingFields set
      * @param field field to remove
      */
-    protected removeLoadingField(field: keyof State): void {
+    protected removeLoadingField(field: keyof Values): void {
         this.removeFieldFromSet('loadingFields', field)
     }
 
@@ -184,7 +195,7 @@ export abstract class AwsComponent<State> extends React.Component<
      * Adds field to hiddenFields set
      * @param field field to add
      */
-    protected addHiddenField(field: keyof State): void {
+    protected addHiddenField(field: keyof Values): void {
         this.addFieldToSet('hiddenFields', field)
     }
 
@@ -192,12 +203,13 @@ export abstract class AwsComponent<State> extends React.Component<
      * Removes field from hiddenFields set
      * @param field field to remove
      */
-    protected removeHiddenField(field: keyof State): void {
+    protected removeHiddenField(field: keyof Values): void {
         this.removeFieldFromSet('hiddenFields', field)
     }
 
     /**
-     * Posts the entire state to the VS Code Node backend with the given command name
+     * Posts all of the state's values to the VS Code Node backend with a given command name for backend handling.
+     * Does not provide any validity fields; backend logic should be able to handle everything that is passed to parent.
      * @param command Command name to send to VS Code
      */
     protected postMessageToVsCode(command: string): void {
@@ -208,10 +220,11 @@ export abstract class AwsComponent<State> extends React.Component<
     }
 
     /**
-     * Handles messaging from VS Code, either via posted message or by restoring state from VS Code
+     * Handles messaging from VS Code, either via posted message or by restoring state from VS Code.
+     * Can be overwritten; it is *HIGHLY* recommended to call `super.generateStateFromMessage(message)` for state handling.
      * @param message Partial state to merge with current state
      */
-    private generateStateFromMessage(message: BackendToAwsComponentMessage<State>): void {
+    protected generateStateFromMessage(message: BackendToAwsComponentMessage<Values>): void {
         this.setState({
             ...this.state,
             values: {
@@ -228,11 +241,20 @@ export abstract class AwsComponent<State> extends React.Component<
         if (message.inactiveFields) {
             this.handleBackendAlteredFields('inactiveFields', message.inactiveFields)
         }
+        if (message.hiddenFields) {
+            this.handleBackendAlteredFields('hiddenFields', message.hiddenFields)
+        }
     }
 
+    /**
+     * Handles the BackendAlteredFields type, which contains changes to be made to the AWS Component's state
+     * Added fields will always be added before computing removed fields.
+     * @param set Name of set in state to handle
+     * @param alteredFields BackendAlteredFields from message.
+     */
     private handleBackendAlteredFields(
-        set: keyof AwsComponentState<State>,
-        alteredFields: BackendAlteredFields<State>
+        set: keyof AwsComponentState<Values>,
+        alteredFields: BackendAlteredFields<Values>
     ) {
         if (alteredFields.add) {
             for (const field of alteredFields.add) {
@@ -246,7 +268,14 @@ export abstract class AwsComponent<State> extends React.Component<
         }
     }
 
-    private addFieldToSet(set: keyof AwsComponentState<State>, field: keyof State) {
+    /**
+     * Adds a field to a state's status set.
+     * This will mark the field as a part of the set (e.g. marking a field as an invalid field)
+     * @param set Set to add to
+     * @param field Field to add to set
+     * @throws if specified set is not a Set
+     */
+    private addFieldToSet(set: keyof AwsComponentState<Values>, field: keyof Values) {
         const modifiedSet = this.state[set]
         if (!(modifiedSet instanceof Set)) {
             throw new Error(`React application is trying to add to non-set field: ${set}`)
@@ -258,7 +287,14 @@ export abstract class AwsComponent<State> extends React.Component<
         })
     }
 
-    private removeFieldFromSet(set: keyof AwsComponentState<State>, field: keyof State) {
+    /**
+     * Removes a field from a state's status set.
+     * This will unmark the field as a part of the set (e.g. marking a field as valid)
+     * @param set Set to remove from
+     * @param field Field to remove from set
+     * @throws if specified set is not a Set
+     */
+    private removeFieldFromSet(set: keyof AwsComponentState<Values>, field: keyof Values) {
         const modifiedSet = this.state[set]
         if (!(modifiedSet instanceof Set)) {
             throw new Error(`React application is trying to remove from non-set field: ${set}`)
