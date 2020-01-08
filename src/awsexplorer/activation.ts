@@ -182,14 +182,12 @@ async function registerExperimentalCommand(
                 }
             })
 
-            await createReactWebview<InvokerValues, InvokerContext>({
+            await createReactWebview<InvokerValues>({
                 id: 'invoke',
                 name: 'Sample Invoker!',
                 webviewJs: 'invokeRemote.js',
-                handlerContext,
-                onDidReceiveMessageFunction: async (message, postMessageFn) =>
-                    invokeLambdaExperiment(message, postMessageFn, handlerContext, resourceFetcher),
-                onDidDisposeFunction: () => {},
+                onDidReceiveMessageFunction: async (message, postMessageFn, destroyWebviewFn) =>
+                    invokeLambdaExperiment(message, postMessageFn, destroyWebviewFn, handlerContext, resourceFetcher),
                 context,
                 initialState: {
                     values: {
@@ -212,6 +210,7 @@ async function registerExperimentalCommand(
 async function invokeLambdaExperiment(
     output: AwsComponentToBackendMessage<InvokerValues>,
     postMessageFn: (event: BackendToAwsComponentMessage<InvokerValues>) => Thenable<boolean>,
+    destroyWebviewFn: () => any,
     context: InvokerContext,
     resourceFetcher: ResourceFetcher
 ) {

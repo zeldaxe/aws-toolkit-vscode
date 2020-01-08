@@ -10,21 +10,20 @@ import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
 import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './tsx/interfaces/common'
 
-export interface reactWebviewParams<State, HandlerContext> {
+export interface reactWebviewParams<Values> {
     id: string
     name: string
     webviewJs: string
     context: vscode.ExtensionContext
-    initialState?: BackendToAwsComponentMessage<State>
+    initialState?: BackendToAwsComponentMessage<Values>
     persistSessions?: boolean
     persistWithoutFocus?: boolean
-    handlerContext?: HandlerContext
     onDidReceiveMessageFunction(
-        message: AwsComponentToBackendMessage<State>,
-        postMessageFn: (event: BackendToAwsComponentMessage<State>) => Thenable<boolean>,
-        params?: HandlerContext
+        request: AwsComponentToBackendMessage<Values>,
+        postMessageFn: (response: BackendToAwsComponentMessage<Values>) => Thenable<boolean>,
+        destroyWebviewFn: () => any
     ): any
-    onDidDisposeFunction(): any
+    onDidDisposeFunction?(): void
 }
 
 /**
@@ -33,7 +32,7 @@ export interface reactWebviewParams<State, HandlerContext> {
  *
  * @param params reactWebviewParameters
  */
-export async function createReactWebview<State, Context>(params: reactWebviewParams<State, Context>) {
+export async function createReactWebview<State>(params: reactWebviewParams<State>) {
     const extpath = path.join(params.context.extensionPath, 'compiledWebviews')
     const mediapath = path.join(params.context.extensionPath, 'media')
     const libpath = path.join(mediapath, 'libs')
@@ -97,7 +96,8 @@ export async function createReactWebview<State, Context>(params: reactWebviewPar
             params.onDidReceiveMessageFunction(
                 message,
                 response => view.webview.postMessage(response),
-                params.handlerContext
+                // tslint:disable-next-line: no-unsafe-any
+                () => view.dispose()
             )
         },
         undefined,
@@ -106,7 +106,9 @@ export async function createReactWebview<State, Context>(params: reactWebviewPar
 
     view.onDidDispose(
         () => {
-            return params.onDidDisposeFunction()
+            if (params.onDidDisposeFunction) {
+                params.onDidDisposeFunction()
+            }
         },
         undefined,
         params.context.subscriptions

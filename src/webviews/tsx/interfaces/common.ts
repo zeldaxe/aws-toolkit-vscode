@@ -79,7 +79,7 @@ export interface VsCodeRetainedState<Values> {
  * Base props for the top level object.
  * Enforces state and grants access to the VS Code functions
  */
-export interface VsCodeReactWebviewProp<Values> {
+export interface AwsComponentProps<Values> {
     vscode: VsCode<Values>
     defaultState: AwsComponentState<Values>
 }

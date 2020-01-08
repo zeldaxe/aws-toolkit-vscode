@@ -5,10 +5,10 @@
 
 import React = require('react')
 import {
+    AwsComponentProps,
     AwsComponentState,
     BackendAlteredFields,
     BackendToAwsComponentMessage,
-    VsCodeReactWebviewProp,
     VsCodeRetainedState
 } from '../interfaces/common'
 
@@ -24,10 +24,10 @@ import {
  * @type Values: A list of values that will be reflected in the AWS Component's state
  */
 export abstract class AwsComponent<Values> extends React.Component<
-    VsCodeReactWebviewProp<Values>,
+    AwsComponentProps<Values>,
     AwsComponentState<Values>
 > {
-    public constructor(props: VsCodeReactWebviewProp<Values>) {
+    public constructor(props: AwsComponentProps<Values>) {
         super(props)
         this.setExistingState(this.props.defaultState)
     }
