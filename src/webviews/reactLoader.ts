@@ -33,20 +33,28 @@ export interface reactWebviewParams<Values, Commands> {
  * @param params reactWebviewParameters
  */
 export async function createReactWebview<Values, Commands>(params: reactWebviewParams<Values, Commands>) {
-    const extpath = path.join(params.context.extensionPath, 'compiledWebviews')
-    const mediapath = path.join(params.context.extensionPath, 'media')
-    const libpath = path.join(mediapath, 'libs')
+    const libsPath: string = path.join(params.context.extensionPath, 'media', 'libs')
+    const jsPath: string = path.join(params.context.extensionPath, 'media', 'js')
+    const cssPath: string = path.join(params.context.extensionPath, 'media', 'css')
+    const webviewPath: string = path.join(params.context.extensionPath, 'compiledWebviews')
+
     const view = vscode.window.createWebviewPanel(params.id, params.name, vscode.ViewColumn.Beside, {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(extpath), vscode.Uri.file(mediapath), vscode.Uri.file(libpath)]
+        localResourceRoots: [
+            vscode.Uri.file(libsPath),
+            vscode.Uri.file(jsPath),
+            vscode.Uri.file(cssPath),
+            vscode.Uri.file(webviewPath)
+        ]
     })
 
-    const loadLibs = ExtensionUtilities.getFilesAsVsCodeResources(
-        params.context,
-        ExtensionUtilities.LIBS_PATH,
+    let loadLibs = ExtensionUtilities.getFilesAsVsCodeResources(
+        libsPath,
         ['react.development.js', 'react-dom.development.js'],
         view.webview
     )
+
+    loadLibs = loadLibs.concat(ExtensionUtilities.getFilesAsVsCodeResources(jsPath, ['loadVsCodeApi.js'], view.webview))
 
     let scripts: String = ''
 
@@ -54,7 +62,7 @@ export async function createReactWebview<Values, Commands>(params: reactWebviewP
         scripts = scripts.concat(`<script src="${element}"></script>\n\n`)
     })
 
-    const mainScript: vscode.Uri = view.webview.asWebviewUri(vscode.Uri.file(path.join(extpath, params.webviewJs)))
+    const mainScript: vscode.Uri = view.webview.asWebviewUri(vscode.Uri.file(path.join(webviewPath, params.webviewJs)))
 
     view.title = params.name
     view.webview.html = `<html>
@@ -66,16 +74,12 @@ export async function createReactWebview<Values, Commands>(params: reactWebviewP
             content=
                 "default-src 'none';
                 img-src ${view.webview.cspSource} https:;
-                script-src ${view.webview.cspSource} 'self' 'unsafe-eval' 'unsafe-inline';
+                script-src ${view.webview.cspSource} 'self' 'unsafe-eval';
                 style-src ${view.webview.cspSource};
                 font-src 'self' data:;"
         >
     </head>
     <body>
-        <!-- TODO: Move this to a file so we can remove 'unsafe-inline' -->
-        <script>
-            const vscode = acquireVsCodeApi();
-        </script>
         <div id="reactApp"></div>
         <!-- Dependencies -->
         ${scripts}

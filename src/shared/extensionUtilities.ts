@@ -21,15 +21,10 @@ export class ExtensionUtilities {
     public static JS_PATH: string = path.join('media', 'js')
     public static CSS_PATH: string = path.join('media', 'css')
 
-    public static getFilesAsVsCodeResources(
-        context: vscode.ExtensionContext,
-        rootdir: string,
-        filenames: string[],
-        webview: vscode.Webview
-    ) {
+    public static getFilesAsVsCodeResources(rootdir: string, filenames: string[], webview: vscode.Webview) {
         const arr: vscode.Uri[] = []
         for (const filename of filenames) {
-            arr.push(webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, rootdir, filename))))
+            arr.push(webview.asWebviewUri(vscode.Uri.file(path.join(rootdir, filename))))
         }
 
         return arr
