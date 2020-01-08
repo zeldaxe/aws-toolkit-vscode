@@ -10,6 +10,22 @@ import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
 import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './tsx/interfaces/common'
 
+/**
+ * Params for creating a React webview.
+ *
+ * TODO: Implement persistSessions
+ * TODO: Implement persistWithoutFocus
+ *
+ * @param id: Webview's ID
+ * @param name: Display name for webview
+ * @param webviewJs: JS file representing entrypoint into webview. Outputted by the frontend webpack (via `webpack.webview.config.js`)
+ * @param context: VS Code extension context
+ * @param initialState: Initial state to message into the webview on initial load (does not message in when restoring webview)
+ * @param persistSessions: (OPTIONAL) Persists the webview after restarting IDE.
+ * @param persistWithoutFocus: (OPTIONAL) Persists webview after it loses focus without having to reload from scratch.
+ * @param onDidReceiveMessageFunction: Function triggered when webview sends a request to the backend. Includes the message, a function to respond to the webview, and a function to destroy the webview.
+ * @param onDidDisposeFunction: (OPTIONAL) Function triggered after the webview has been destroyed.
+ */
 export interface reactWebviewParams<Values, Commands> {
     id: string
     name: string
