@@ -90,7 +90,7 @@ export async function createReactWebview<Values, Commands>(params: reactWebviewP
             content=
                 "default-src 'none';
                 img-src ${view.webview.cspSource} https:;
-                script-src ${view.webview.cspSource} 'self' 'unsafe-eval';
+                script-src ${view.webview.cspSource};
                 style-src ${view.webview.cspSource};
                 font-src 'self' data:;"
         >
