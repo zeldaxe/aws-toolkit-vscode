@@ -10,9 +10,9 @@ import { AwsComponent } from './components/awsComponent'
 import { SelectDropDown } from './components/primitives/selectDropDown'
 import { TextArea } from './components/primitives/textArea'
 import { AwsComponentState, VsCode } from './interfaces/common'
-import { InvokerValues } from './interfaces/invoker'
+import { InvokerCommands, InvokerValues } from './interfaces/invoker'
 
-declare const vscode: VsCode<InvokerValues>
+declare const vscode: VsCode<InvokerValues, InvokerCommands>
 
 function generateDefaultInvokerState(): AwsComponentState<InvokerValues> {
     return {
@@ -30,7 +30,7 @@ function generateDefaultInvokerState(): AwsComponentState<InvokerValues> {
     }
 }
 
-export class Invoker extends AwsComponent<InvokerValues> {
+export class Invoker extends AwsComponent<InvokerValues, InvokerCommands> {
     public render() {
         return (
             <div>

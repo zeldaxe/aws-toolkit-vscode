@@ -9,8 +9,8 @@
  * @function setState: Sets the VS Code webview state so the webview can reload the view if the webview loses focus and isn't persistant.
  * @function getState: Gets the VS Code webview state, used upon regaining focus without full persistence.
  */
-export interface VsCode<Values> {
-    postMessage(output: AwsComponentToBackendMessage<Values>): void
+export interface VsCode<Values, Commands> {
+    postMessage(output: AwsComponentToBackendMessage<Values, Commands>): void
     setState(state: VsCodeRetainedState<Values>): void
     getState(): VsCodeRetainedState<Values>
 }
@@ -34,9 +34,9 @@ export interface AwsComponentState<Values> {
  * Includes the whole list of current values and a command that the backend should execute.
  * Values can be validated on the front or backend; there is no guarantee all values will be valid, just typesafe.
  */
-export interface AwsComponentToBackendMessage<Values> {
+export interface AwsComponentToBackendMessage<Values, Commands> {
     values: Values
-    command: string
+    command: Commands
 }
 
 /**
@@ -79,8 +79,8 @@ export interface VsCodeRetainedState<Values> {
  * Base props for the top level object.
  * Enforces state and grants access to the VS Code functions
  */
-export interface AwsComponentProps<Values> {
-    vscode: VsCode<Values>
+export interface AwsComponentProps<Values, Commands> {
+    vscode: VsCode<Values, Commands>
     defaultState: AwsComponentState<Values>
 }
 
@@ -101,6 +101,7 @@ export interface SubComponentProps {
     isHidden?: boolean
     isLoading?: boolean
 }
+
 /**
  * Generates a class string based on field validity, isActive, visibility, and isLoading
  * @param props Props that extend SubComponentProps

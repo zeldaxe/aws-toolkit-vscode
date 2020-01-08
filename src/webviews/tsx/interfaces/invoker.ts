@@ -20,3 +20,5 @@ export interface InvokerContext {
     node: LambdaFunctionNode
     outputChannel: vscode.OutputChannel
 }
+
+export type InvokerCommands = 'sampleRequestSelected' | 'invokeLambda'

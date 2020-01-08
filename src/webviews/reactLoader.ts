@@ -10,7 +10,7 @@ import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
 import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './tsx/interfaces/common'
 
-export interface reactWebviewParams<Values> {
+export interface reactWebviewParams<Values, Commands> {
     id: string
     name: string
     webviewJs: string
@@ -19,7 +19,7 @@ export interface reactWebviewParams<Values> {
     persistSessions?: boolean
     persistWithoutFocus?: boolean
     onDidReceiveMessageFunction(
-        request: AwsComponentToBackendMessage<Values>,
+        request: AwsComponentToBackendMessage<Values, Commands>,
         postMessageFn: (response: BackendToAwsComponentMessage<Values>) => Thenable<boolean>,
         destroyWebviewFn: () => any
     ): any
@@ -32,7 +32,7 @@ export interface reactWebviewParams<Values> {
  *
  * @param params reactWebviewParameters
  */
-export async function createReactWebview<State>(params: reactWebviewParams<State>) {
+export async function createReactWebview<Values, Commands>(params: reactWebviewParams<Values, Commands>) {
     const extpath = path.join(params.context.extensionPath, 'compiledWebviews')
     const mediapath = path.join(params.context.extensionPath, 'media')
     const libpath = path.join(mediapath, 'libs')
@@ -92,7 +92,7 @@ export async function createReactWebview<State>(params: reactWebviewParams<State
     }
 
     view.webview.onDidReceiveMessage(
-        (message: AwsComponentToBackendMessage<State>) => {
+        (message: AwsComponentToBackendMessage<Values, Commands>) => {
             params.onDidReceiveMessageFunction(
                 message,
                 response => view.webview.postMessage(response),

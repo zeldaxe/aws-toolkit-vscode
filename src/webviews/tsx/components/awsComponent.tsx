@@ -23,11 +23,11 @@ import {
  *
  * @type Values: A list of values that will be reflected in the AWS Component's state
  */
-export abstract class AwsComponent<Values> extends React.Component<
-    AwsComponentProps<Values>,
+export abstract class AwsComponent<Values, Commands> extends React.Component<
+    AwsComponentProps<Values, Commands>,
     AwsComponentState<Values>
 > {
-    public constructor(props: AwsComponentProps<Values>) {
+    public constructor(props: AwsComponentProps<Values, Commands>) {
         super(props)
         this.setExistingState(this.props.defaultState)
     }
@@ -212,7 +212,7 @@ export abstract class AwsComponent<Values> extends React.Component<
      * Does not provide any validity fields; backend logic should be able to handle everything that is passed to parent.
      * @param command Command name to send to VS Code
      */
-    protected postMessageToVsCode(command: string): void {
+    protected postMessageToVsCode(command: Commands): void {
         this.props.vscode.postMessage({
             values: this.state.values,
             command: command
