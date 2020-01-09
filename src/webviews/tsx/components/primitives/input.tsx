@@ -11,7 +11,8 @@ export interface InputProps extends SubComponentProps {
     name: string
     placeholder: string
     setState(key: string, value: string | number, callback?: () => void): void
-    onChangeAction?(): void
+    onChangeAction?(target: HTMLInputElement): void
+    onBlurAction?(target: HTMLInputElement): void
 }
 
 export function Input(props: InputProps) {
@@ -20,20 +21,24 @@ export function Input(props: InputProps) {
             name={props.name}
             placeholder={props.placeholder}
             value={props.value}
-            onChange={event => updateParentStateAndCallback(event, props)}
             className={generateClassString(props)}
+            onBlur={event => onBlurAction(event, props)}
+            onChange={event => updateParentStateAndCallback(event, props)}
         />
     )
 }
 
-function updateParentStateAndCallback(
-    event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-    props: InputProps
-) {
+function updateParentStateAndCallback(event: React.ChangeEvent<HTMLInputElement>, props: InputProps) {
     const target = event.target
     props.setState(target.name, target.value, () => {
         if (props.onChangeAction) {
-            props.onChangeAction()
+            props.onChangeAction(target)
         }
     })
+}
+
+function onBlurAction(event: React.FocusEvent<HTMLInputElement>, props: InputProps) {
+    if (props.onBlurAction) {
+        props.onBlurAction(event.target)
+    }
 }
