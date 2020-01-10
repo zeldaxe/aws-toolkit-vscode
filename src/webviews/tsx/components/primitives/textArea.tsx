@@ -23,11 +23,11 @@ export function TextArea(props: TextAreaProps) {
             name={props.name}
             placeholder={props.placeholder}
             value={props.value}
+            onChange={event => updateParentStateAndCallback(event, props)}
             className={generateClassString(props)}
             rows={props.rows}
             cols={props.cols}
             onBlur={event => onBlurAction(event, props)}
-            onChange={event => updateParentStateAndCallback(event, props)}
         />
     )
 }

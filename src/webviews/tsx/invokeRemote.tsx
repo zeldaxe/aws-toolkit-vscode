@@ -1,5 +1,5 @@
 /*!
- * Copyright 2018-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,8 +7,9 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
 import { AwsComponent } from './components/awsComponent'
-import { SelectDropDown } from './components/primitives/selectDropDown'
-import { TextArea } from './components/primitives/textArea'
+import { LambdaTemplateInput } from './components/lambdaTemplateInput'
+// import { SelectDropDown } from './components/primitives/selectDropDown'
+// import { TextArea } from './components/primitives/textArea'
 import { AwsComponentState, VsCode } from './interfaces/common'
 import { InvokerCommands, InvokerValues } from './interfaces/invoker'
 
@@ -38,35 +39,34 @@ export class Invoker extends AwsComponent<InvokerValues, InvokerCommands> {
                     Calling Lambda function: {this.state.values.lambda} in Region: {this.state.values.region}
                 </h1>
                 <br />
-                <h3>Enter a JSON payload (or select a template from the list below)</h3>
-                <SelectDropDown
-                    name="template"
-                    options={this.state.values.availableTemplates}
-                    value={this.state.values.template}
+                <LambdaTemplateInput
+                    templateName="template"
+                    jsonName="payload"
+                    templateValue={this.state.values.template}
+                    jsonValue={this.state.values.payload}
+                    templateOptions={this.state.values.availableTemplates}
+                    invalidJsonMessage="Payload is not valid JSON."
+                    onSelectTemplate={() => this.onSelectTemplate()}
                     setState={(key: string, value: string, callback: () => void) =>
                         this.setSingleValueInState<string>(key, value, callback)
                     }
-                    onSelectAction={() => this.onSelectTemplate()}
-                    placeholder="Templates"
-                    isInactive={this.state.inactiveFields.has('template')}
-                />
-                <br />
-                <h3>JSON Payload</h3>
-                <TextArea
-                    name="payload"
-                    placeholder="JSON Payload"
-                    value={this.state.values.payload}
-                    setState={(key: string, value: string) => this.setSingleValueInState<string>(key, value)}
-                    isInvalid={this.state.invalidFields.has('payload')}
-                    isInactive={this.state.inactiveFields.has('payload')}
-                    isLoading={this.state.loadingFields.has('payload')}
-                    rows={20}
-                    cols={75}
+                    setInvalidField={(isInvalid: boolean) => this.setInvalidJsonField(isInvalid)}
+                    checkInvalid={(field: keyof InvokerValues) => this.state.invalidFields.has(field)}
+                    checkInactive={(field: keyof InvokerValues) => this.state.inactiveFields.has(field)}
+                    checkLoading={(field: keyof InvokerValues) => this.state.loadingFields.has(field)}
                 />
                 <br />
                 <button onClick={e => this.onSubmit(e)}>Submit!</button>
             </div>
         )
+    }
+
+    private setInvalidJsonField(isInvalid: boolean) {
+        if (isInvalid) {
+            this.addInvalidField('payload')
+        } else {
+            this.removeInvalidField('payload')
+        }
     }
 
     private onSelectTemplate() {

@@ -114,3 +114,7 @@ export function generateClassString(props: SubComponentProps): string {
         ` ${props.isLoading ? 'loading' : 'loaded'}`
     )
 }
+
+// export function createSubComponentProps<Values>(value: keyof Values): SubComponentProps {
+//     return
+// }
