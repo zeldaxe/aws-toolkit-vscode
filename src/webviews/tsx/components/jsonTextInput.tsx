@@ -4,23 +4,47 @@
  */
 
 import * as React from 'react'
-import { TextArea, TextAreaProps } from './primitives/textArea'
+import { SubComponentProps } from '../interfaces/common'
+import { TextArea } from './primitives/textArea'
 
-export interface JsonTextInputProps extends TextAreaProps {
+export interface JsonTextInputProps<Values> extends SubComponentProps<Values> {
+    name: keyof Values
+    value: string
+    placeholder: string
+    rows?: number
+    cols?: number
     isInvalidMessage?: string
-    setInvalidField(isInvalid: boolean): void
+    onChangeAction?(target: HTMLTextAreaElement): void
+    onBlurAction?(target: HTMLTextAreaElement): void
 }
 
-export function JsonTextInput(props: JsonTextInputProps) {
+export function JsonTextInput<Values>(props: JsonTextInputProps<Values>) {
     return (
         <div>
-            <TextArea
-                {...props}
+            <TextArea<Values>
+                name={props.name}
+                value={props.value}
+                placeholder={props.placeholder}
+                rows={props.rows}
+                cols={props.cols}
                 onBlurAction={target =>
-                    validateJsonOnBlur(target, (isInvalid: boolean) => props.setInvalidField(isInvalid))
+                    validateJsonOnBlur(target, (isInvalid: boolean) => {
+                        if (isInvalid) {
+                            props.stateInteractors.setStatusInSet('invalidFields', props.name)
+                        } else {
+                            props.stateInteractors.removeStatusFromSet('invalidFields', props.name)
+                        }
+                    })
+                }
+                setState={(key: keyof Values, value: string, callback: () => void) =>
+                    props.stateInteractors.setSingleState(key, value, callback)
                 }
             />
-            {props.isInvalid ? <p>{props.isInvalidMessage}</p> : undefined}
+            {props.stateInteractors.getStatusFromSet('invalidFields', props.name) ? (
+                <p>{props.isInvalidMessage}</p>
+            ) : (
+                undefined
+            )}
         </div>
     )
 }

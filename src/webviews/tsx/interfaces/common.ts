@@ -23,6 +23,10 @@ export interface VsCode<Values, Commands> {
  */
 export interface AwsComponentState<Values> {
     values: Values
+    statusFields: StatusFields<Values>
+}
+
+export interface StatusFields<Values> {
     invalidFields: Set<keyof Values>
     inactiveFields: Set<keyof Values>
     loadingFields: Set<keyof Values>
@@ -93,20 +97,29 @@ export interface SelectOption {
 }
 
 /**
- * Generic props for subcomponents. Required for generating a class string.
+ * Generic props for primitives. Required for generating a class string.
  */
-export interface SubComponentProps {
+export interface PrimitiveProps<Values> {
     isInactive?: boolean
     isInvalid?: boolean
     isHidden?: boolean
     isLoading?: boolean
 }
 
+export interface SubComponentProps<Values> {
+    stateInteractors: {
+        setSingleState(key: keyof Values, value: any, callback: () => void): void
+        setStatusInSet(set: keyof StatusFields<Values>, value: keyof Values): void
+        removeStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): void
+        getStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): boolean
+    }
+}
+
 /**
  * Generates a class string based on field validity, isActive, visibility, and isLoading
  * @param props Props that extend SubComponentProps
  */
-export function generateClassString(props: SubComponentProps): string {
+export function generateClassString<Values>(props: PrimitiveProps<Values>): string {
     return (
         `${props.isInvalid ? 'invalid' : 'valid'}` +
         ` ${props.isInactive ? 'inactive' : 'active'}` +
@@ -114,7 +127,3 @@ export function generateClassString(props: SubComponentProps): string {
         ` ${props.isLoading ? 'loading' : 'loaded'}`
     )
 }
-
-// export function createSubComponentProps<Values>(value: keyof Values): SubComponentProps {
-//     return
-// }

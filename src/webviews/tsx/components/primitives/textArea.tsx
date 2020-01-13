@@ -4,23 +4,23 @@
  */
 
 import * as React from 'react'
-import { generateClassString, SubComponentProps } from '../../interfaces/common'
+import { generateClassString, PrimitiveProps } from '../../interfaces/common'
 
-export interface TextAreaProps extends SubComponentProps {
-    value: string | number
-    name: string
+export interface TextAreaProps<Values> extends PrimitiveProps<Values> {
+    value: string
+    name: keyof Values
     placeholder: string
     rows?: number
     cols?: number
-    setState(key: string, value: string | number, callback?: () => void): void
+    setState(key: keyof Values, value: string, callback?: () => void): void
     onChangeAction?(target: HTMLTextAreaElement): void
     onBlurAction?(target: HTMLTextAreaElement): void
 }
 
-export function TextArea(props: TextAreaProps) {
+export function TextArea<Values>(props: TextAreaProps<Values>) {
     return (
         <textarea
-            name={props.name}
+            name={props.name.toString()}
             placeholder={props.placeholder}
             value={props.value}
             onChange={event => updateParentStateAndCallback(event, props)}
@@ -32,16 +32,19 @@ export function TextArea(props: TextAreaProps) {
     )
 }
 
-function updateParentStateAndCallback(event: React.ChangeEvent<HTMLTextAreaElement>, props: TextAreaProps) {
+function updateParentStateAndCallback<Values>(
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+    props: TextAreaProps<Values>
+) {
     const target = event.target
-    props.setState(target.name, target.value, () => {
+    props.setState(props.name, target.value, () => {
         if (props.onChangeAction) {
             props.onChangeAction(event.target)
         }
     })
 }
 
-function onBlurAction(event: React.FocusEvent<HTMLTextAreaElement>, props: TextAreaProps) {
+function onBlurAction<Values>(event: React.FocusEvent<HTMLTextAreaElement>, props: TextAreaProps<Values>) {
     if (props.onBlurAction) {
         props.onBlurAction(event.target)
     }

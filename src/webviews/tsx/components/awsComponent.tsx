@@ -9,6 +9,7 @@ import {
     AwsComponentState,
     BackendAlteredFields,
     BackendToAwsComponentMessage,
+    StatusFields,
     VsCodeRetainedState
 } from '../interfaces/common'
 
@@ -70,10 +71,10 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
     public setState(state: AwsComponentState<Values>, callback?: () => void): void {
         super.setState(state, () => {
             this.props.vscode.setState({
-                inactiveFields: Array.from(this.state.inactiveFields),
-                invalidFields: Array.from(this.state.invalidFields),
-                loadingFields: Array.from(this.state.loadingFields),
-                hiddenFields: Array.from(this.state.hiddenFields),
+                inactiveFields: Array.from(this.state.statusFields.inactiveFields),
+                invalidFields: Array.from(this.state.statusFields.invalidFields),
+                loadingFields: Array.from(this.state.statusFields.loadingFields),
+                hiddenFields: Array.from(this.state.statusFields.hiddenFields),
                 values: this.state.values
             })
             if (callback) {
@@ -95,18 +96,20 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
         // We will update the state with this.setState(this.state) in the componentDidMount function
         if (message) {
             this.state = {
-                invalidFields: message.invalidFields
-                    ? new Set<keyof Values>(message.invalidFields)
-                    : defaultState.invalidFields,
-                inactiveFields: message.inactiveFields
-                    ? new Set<keyof Values>(message.inactiveFields)
-                    : defaultState.inactiveFields,
-                loadingFields: message.loadingFields
-                    ? new Set<keyof Values>(message.loadingFields)
-                    : defaultState.loadingFields,
-                hiddenFields: message.hiddenFields
-                    ? new Set<keyof Values>(message.hiddenFields)
-                    : defaultState.hiddenFields,
+                statusFields: {
+                    invalidFields: message.invalidFields
+                        ? new Set<keyof Values>(message.invalidFields)
+                        : defaultState.statusFields.invalidFields,
+                    inactiveFields: message.inactiveFields
+                        ? new Set<keyof Values>(message.inactiveFields)
+                        : defaultState.statusFields.inactiveFields,
+                    loadingFields: message.loadingFields
+                        ? new Set<keyof Values>(message.loadingFields)
+                        : defaultState.statusFields.loadingFields,
+                    hiddenFields: message.hiddenFields
+                        ? new Set<keyof Values>(message.hiddenFields)
+                        : defaultState.statusFields.hiddenFields
+                },
                 values: {
                     ...defaultState.values,
                     ...message.values
@@ -246,26 +249,8 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
         }
     }
 
-    /**
-     * Handles the BackendAlteredFields type, which contains changes to be made to the AWS Component's state
-     * Added fields will always be added before computing removed fields.
-     * @param set Name of set in state to handle
-     * @param alteredFields BackendAlteredFields from message.
-     */
-    private handleBackendAlteredFields(
-        set: keyof AwsComponentState<Values>,
-        alteredFields: BackendAlteredFields<Values>
-    ) {
-        if (alteredFields.add) {
-            for (const field of alteredFields.add) {
-                this.addFieldToSet(set, field)
-            }
-        }
-        if (alteredFields.remove) {
-            for (const field of alteredFields.remove) {
-                this.removeFieldFromSet(set, field)
-            }
-        }
+    protected checkFieldInSet(set: keyof StatusFields<Values>, field: keyof Values): boolean {
+        return this.state.statusFields[set].has(field)
     }
 
     /**
@@ -275,11 +260,8 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * @param field Field to add to set
      * @throws if specified set is not a Set
      */
-    private addFieldToSet(set: keyof AwsComponentState<Values>, field: keyof Values) {
-        const modifiedSet = this.state[set]
-        if (!(modifiedSet instanceof Set)) {
-            throw new Error(`React application is trying to add to non-set field: ${set}`)
-        }
+    protected addFieldToSet(set: keyof StatusFields<Values>, field: keyof Values) {
+        const modifiedSet = this.state.statusFields[set]
         modifiedSet.add(field)
         this.setState({
             ...this.state,
@@ -294,15 +276,31 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * @param field Field to remove from set
      * @throws if specified set is not a Set
      */
-    private removeFieldFromSet(set: keyof AwsComponentState<Values>, field: keyof Values) {
-        const modifiedSet = this.state[set]
-        if (!(modifiedSet instanceof Set)) {
-            throw new Error(`React application is trying to remove from non-set field: ${set}`)
-        }
+    protected removeFieldFromSet(set: keyof StatusFields<Values>, field: keyof Values) {
+        const modifiedSet = this.state.statusFields[set]
         modifiedSet.delete(field)
         this.setState({
             ...this.state,
             [set]: modifiedSet
         })
+    }
+
+    /**
+     * Handles the BackendAlteredFields type, which contains changes to be made to the AWS Component's state
+     * Added fields will always be added before computing removed fields.
+     * @param set Name of set in state to handle
+     * @param alteredFields BackendAlteredFields from message.
+     */
+    private handleBackendAlteredFields(set: keyof StatusFields<Values>, alteredFields: BackendAlteredFields<Values>) {
+        if (alteredFields.add) {
+            for (const field of alteredFields.add) {
+                this.addFieldToSet(set, field)
+            }
+        }
+        if (alteredFields.remove) {
+            for (const field of alteredFields.remove) {
+                this.removeFieldFromSet(set, field)
+            }
+        }
     }
 }

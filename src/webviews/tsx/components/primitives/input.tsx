@@ -4,20 +4,20 @@
  */
 
 import * as React from 'react'
-import { generateClassString, SubComponentProps } from '../../interfaces/common'
+import { generateClassString, PrimitiveProps } from '../../interfaces/common'
 
-export interface InputProps extends SubComponentProps {
+export interface InputProps<Values> extends PrimitiveProps<Values> {
     value: string | number
-    name: string
+    name: keyof Values
     placeholder: string
     setState(key: string, value: string | number, callback?: () => void): void
     onChangeAction?(): void
 }
 
-export function Input(props: InputProps) {
+export function Input<Values>(props: InputProps<Values>) {
     return (
         <input
-            name={props.name}
+            name={props.name.toString()}
             placeholder={props.placeholder}
             value={props.value}
             onChange={event => updateParentStateAndCallback(event, props)}
@@ -26,9 +26,9 @@ export function Input(props: InputProps) {
     )
 }
 
-function updateParentStateAndCallback(
+function updateParentStateAndCallback<Values>(
     event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-    props: InputProps
+    props: InputProps<Values>
 ) {
     const target = event.target
     props.setState(target.name, target.value, () => {
