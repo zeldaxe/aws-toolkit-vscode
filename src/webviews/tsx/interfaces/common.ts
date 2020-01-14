@@ -103,7 +103,7 @@ export interface SelectOption {
 /**
  * Generic props for primitives. Required for generating a class string.
  */
-export interface PrimitiveProps<Values> {
+export interface PrimitiveProps {
     isInactive?: boolean
     isInvalid?: boolean
     isHidden?: boolean

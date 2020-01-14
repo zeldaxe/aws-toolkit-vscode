@@ -7,7 +7,7 @@ import * as React from 'react'
 import { PrimitiveProps, SelectOption } from '../../interfaces/common'
 import { generateClassString } from './common'
 
-export interface SelectDropDownProps<Values> extends PrimitiveProps<Values> {
+export interface SelectDropDownProps<Values> extends PrimitiveProps {
     options: SelectOption[]
     value: string
     name: keyof Values

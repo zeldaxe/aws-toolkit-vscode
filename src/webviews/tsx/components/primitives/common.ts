@@ -9,7 +9,7 @@ import { PrimitiveProps } from '../../interfaces/common'
  * Generates a class string based on field validity, isActive, visibility, and isLoading
  * @param props Props that extend SubComponentProps
  */
-export function generateClassString<Values>(props: PrimitiveProps<Values>): string {
+export function generateClassString(props: PrimitiveProps): string {
     return (
         `${props.isInvalid ? 'invalid' : 'valid'}` +
         ` ${props.isInactive ? 'inactive' : 'active'}` +

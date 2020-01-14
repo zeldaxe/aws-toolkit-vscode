@@ -264,3 +264,16 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
         }
     }
 }
+
+/**
+ * Creates default status fields.
+ * Outside of class body so we can initialize default fields separately.
+ */
+export function createStatusFields<Values>() {
+    return {
+        invalidFields: new Set<keyof Values>(),
+        inactiveFields: new Set<keyof Values>(),
+        loadingFields: new Set<keyof Values>(),
+        hiddenFields: new Set<keyof Values>()
+    }
+}

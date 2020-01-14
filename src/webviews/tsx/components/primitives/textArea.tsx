@@ -7,7 +7,7 @@ import * as React from 'react'
 import { PrimitiveProps } from '../../interfaces/common'
 import { generateClassString } from './common'
 
-export interface TextAreaProps<Values> extends PrimitiveProps<Values> {
+export interface TextAreaProps<Values> extends PrimitiveProps {
     value: string
     name: keyof Values
     placeholder?: string

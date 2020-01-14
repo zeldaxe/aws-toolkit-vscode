@@ -6,10 +6,9 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
-import { AwsComponent } from './components/awsComponent'
+import { AwsComponent, createStatusFields } from './components/awsComponent'
 import { LambdaTemplateInput } from './components/lambdaTemplateInput'
-// import { SelectDropDown } from './components/primitives/selectDropDown'
-// import { TextArea } from './components/primitives/textArea'
+import { Button } from './components/primitives/button'
 import { AwsComponentState, VsCode } from './interfaces/common'
 import { InvokerCommands, InvokerValues } from './interfaces/invoker'
 
@@ -24,12 +23,7 @@ function generateDefaultInvokerState(): AwsComponentState<InvokerValues> {
             template: '',
             availableTemplates: []
         },
-        statusFields: {
-            invalidFields: new Set<keyof InvokerValues>(),
-            inactiveFields: new Set<keyof InvokerValues>(),
-            loadingFields: new Set<keyof InvokerValues>(),
-            hiddenFields: new Set<keyof InvokerValues>()
-        }
+        statusFields: createStatusFields<InvokerValues>()
     }
 }
 
@@ -52,13 +46,13 @@ export class Invoker extends AwsComponent<InvokerValues, InvokerCommands> {
                     stateInteractors={this.createStateInteractors()}
                 />
                 <br />
-                <button onClick={e => this.onSubmit(e)}>Submit!</button>
+                <Button onClick={() => this.onSubmit()} text="Submit!" />
             </div>
         )
     }
 
     // create button primitive that returns the command to post?
-    private onSubmit(event: React.MouseEvent) {
+    private onSubmit() {
         try {
             // basic client-side validation test. We should probably offload something like this to the controller.
             JSON.parse(this.state.values.payload)
