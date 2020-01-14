@@ -4,13 +4,14 @@
  */
 
 import * as React from 'react'
-import { generateClassString, PrimitiveProps, SelectOption } from '../../interfaces/common'
+import { PrimitiveProps, SelectOption } from '../../interfaces/common'
+import { generateClassString } from './common'
 
 export interface SelectDropDownProps<Values> extends PrimitiveProps<Values> {
     options: SelectOption[]
     value: string
     name: keyof Values
-    placeholder: string
+    placeholder?: string
     setState(key: keyof Values, value: string, callback?: () => void): void
     onSelectAction?(): void
 }
@@ -20,11 +21,13 @@ export const DEFAULT_PLACEHOLDER = 'aws-toolkit-vscode-react-DEFAULTPLACEHOLDER'
 export function SelectDropDown<Values>(props: SelectDropDownProps<Values>) {
     const options: JSX.Element[] = []
 
-    options.push(
-        <option value={DEFAULT_PLACEHOLDER} key={DEFAULT_PLACEHOLDER}>
-            ----{props.placeholder}----
-        </option>
-    )
+    if (props.placeholder) {
+        options.push(
+            <option value={DEFAULT_PLACEHOLDER} key={DEFAULT_PLACEHOLDER}>
+                ----{props.placeholder}----
+            </option>
+        )
+    }
 
     for (const option of props.options) {
         options.push(

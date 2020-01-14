@@ -4,12 +4,13 @@
  */
 
 import * as React from 'react'
-import { generateClassString, PrimitiveProps } from '../../interfaces/common'
+import { PrimitiveProps } from '../../interfaces/common'
+import { generateClassString } from './common'
 
 export interface TextAreaProps<Values> extends PrimitiveProps<Values> {
     value: string
     name: keyof Values
-    placeholder: string
+    placeholder?: string
     rows?: number
     cols?: number
     setState(key: keyof Values, value: string, callback?: () => void): void

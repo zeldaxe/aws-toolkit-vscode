@@ -27,15 +27,11 @@ export function JsonTextInput<Values, Commands>(props: JsonTextInputProps<Values
                 placeholder={props.placeholder}
                 rows={props.rows}
                 cols={props.cols}
-                onBlurAction={target =>
-                    validateJsonOnBlur(target, (isInvalid: boolean) => {
-                        if (isInvalid) {
-                            props.stateInteractors.setStatusInSet('invalidFields', props.name)
-                        } else {
-                            props.stateInteractors.removeStatusFromSet('invalidFields', props.name)
-                        }
-                    })
-                }
+                isHidden={props.stateInteractors.getStatusFromSet('hiddenFields', props.name)}
+                isInactive={props.stateInteractors.getStatusFromSet('inactiveFields', props.name)}
+                isInvalid={props.stateInteractors.getStatusFromSet('invalidFields', props.name)}
+                isLoading={props.stateInteractors.getStatusFromSet('loadingFields', props.name)}
+                onBlurAction={target => validateJsonOnBlur(target, props)}
                 setState={(key: keyof Values, value: string, callback: () => void) =>
                     props.stateInteractors.setSingleState(key, value, callback)
                 }
@@ -49,11 +45,14 @@ export function JsonTextInput<Values, Commands>(props: JsonTextInputProps<Values
     )
 }
 
-function validateJsonOnBlur(target: HTMLTextAreaElement, setInvalidField: (isInvalid: boolean) => void) {
+function validateJsonOnBlur<Values, Commands>(
+    target: HTMLTextAreaElement,
+    props: JsonTextInputProps<Values, Commands>
+) {
     try {
         JSON.parse(target.value)
-        setInvalidField(false)
+        props.stateInteractors.removeStatusFromSet('invalidFields', props.name)
     } catch {
-        setInvalidField(true)
+        props.stateInteractors.setStatusInSet('invalidFields', props.name)
     }
 }

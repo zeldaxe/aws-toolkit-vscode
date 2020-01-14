@@ -26,6 +26,10 @@ export interface AwsComponentState<Values> {
     statusFields: StatusFields<Values>
 }
 
+/**
+ * Sets which hold field statuses for an AwsComponent
+ * Holds status for invalid, inactive, hidden, and currently-loading fields.
+ */
 export interface StatusFields<Values> {
     invalidFields: Set<keyof Values>
     inactiveFields: Set<keyof Values>
@@ -106,25 +110,21 @@ export interface PrimitiveProps<Values> {
     isLoading?: boolean
 }
 
+/**
+ * Generic props for SubComponents
+ * These contain utility functions to determine field status and interact with the parent component/backend.
+ * @function getStatusFromSet Returns whether or not a field is in the parent AwsComponent's validity set.
+ * @function postMessageToVsCode Parent function to post a message to VS Code containing a command name and the whole AwsComponent's `values`. Available commands are based on command type.
+ * @function removeStatusFromSet Removes a value from a parent AwsComponent's validity set.
+ * @function setSingleState Sets a value in the parent AwsComponent's state.
+ * @function setStatusInSet Sets a status in the parent AwsComponent's state.
+ */
 export interface SubComponentProps<Values, Commands> {
     stateInteractors: {
-        setSingleState(key: keyof Values, value: any, callback: () => void): void
-        setStatusInSet(set: keyof StatusFields<Values>, value: keyof Values): void
-        removeStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): void
         getStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): boolean
         postMessageToVsCode(command: Commands): void
+        removeStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): void
+        setSingleState(key: keyof Values, value: any, callback: () => void): void
+        setStatusInSet(set: keyof StatusFields<Values>, value: keyof Values): void
     }
-}
-
-/**
- * Generates a class string based on field validity, isActive, visibility, and isLoading
- * @param props Props that extend SubComponentProps
- */
-export function generateClassString<Values>(props: PrimitiveProps<Values>): string {
-    return (
-        `${props.isInvalid ? 'invalid' : 'valid'}` +
-        ` ${props.isInactive ? 'inactive' : 'active'}` +
-        ` ${props.isHidden ? 'hidden' : 'unhidden'}` +
-        ` ${props.isLoading ? 'loading' : 'loaded'}`
-    )
 }

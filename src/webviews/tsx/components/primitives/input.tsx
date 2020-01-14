@@ -4,12 +4,13 @@
  */
 
 import * as React from 'react'
-import { generateClassString, PrimitiveProps } from '../../interfaces/common'
+import { PrimitiveProps } from '../../interfaces/common'
+import { generateClassString } from './common'
 
 export interface InputProps<Values> extends PrimitiveProps<Values> {
     value: string | number
     name: keyof Values
-    placeholder: string
+    placeholder?: string
     setState(key: string, value: string | number, callback?: () => void): void
     onChangeAction?(): void
 }

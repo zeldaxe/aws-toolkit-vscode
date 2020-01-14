@@ -32,8 +32,11 @@ export function LambdaTemplateInput<Values, Commands>(props: LambdaTemplateInput
                 setState={(key: keyof Values, value: string, callback: () => void) =>
                     props.stateInteractors.setSingleState(key, value, callback)
                 }
-                isInactive={props.stateInteractors.getStatusFromSet('inactiveFields', props.templateName)}
                 onSelectAction={() => onSelectTemplate(props)}
+                isHidden={props.stateInteractors.getStatusFromSet('hiddenFields', props.templateName)}
+                isInactive={props.stateInteractors.getStatusFromSet('inactiveFields', props.templateName)}
+                isInvalid={props.stateInteractors.getStatusFromSet('invalidFields', props.templateName)}
+                isLoading={props.stateInteractors.getStatusFromSet('loadingFields', props.templateName)}
             />
             <br />
             <h3>JSON Payload</h3>
