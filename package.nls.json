@@ -29,6 +29,7 @@
     "AWS.command.logout": "Sign out",
     "AWS.command.reportIssue": "Report an Issue",
     "AWS.command.createNewSamApp": "Create new SAM Application",
+    "AWS.command.createNewSamAppReact": "Create new SAM Application (with React!)",
     "AWS.command.credential.profile.create": "Create Credentials Profile",
     "AWS.command.showRegion": "Show region in the Explorer",
     "AWS.command.hideRegion": "Hide region from the Explorer",

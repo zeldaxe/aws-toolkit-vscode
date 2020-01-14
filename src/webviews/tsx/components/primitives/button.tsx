@@ -14,7 +14,7 @@ export interface ButtonProps extends PrimitiveProps {
 
 export function Button(props: ButtonProps) {
     return (
-        <button onClick={e => props.onClick(e)} className={generateClassString(props)}>
+        <button onClick={e => props.onClick(e)} className={generateClassString(props)} disabled={props.isInactive}>
             {props.text}
         </button>
     )

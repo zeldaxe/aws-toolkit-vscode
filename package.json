@@ -42,6 +42,7 @@
         "onCommand:aws.deploySamApplication",
         "onCommand:aws.samcli.detect",
         "onCommand:aws.lambda.createNewSamApp",
+        "onCommand:aws.lambda.createNewSamAppReact",
         "onDebugInitialConfigurations",
         "onCommand:aws.viewLogs",
         "onCommand:aws.quickStart",
@@ -309,6 +310,11 @@
             {
                 "command": "aws.lambda.createNewSamApp",
                 "title": "%AWS.command.createNewSamApp%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.lambda.createNewSamAppReact",
+                "title": "%AWS.command.createNewSamAppReact%",
                 "category": "AWS"
             },
             {

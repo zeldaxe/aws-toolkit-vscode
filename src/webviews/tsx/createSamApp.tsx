@@ -43,7 +43,7 @@ export class CreateSamApp extends AwsComponent<CreateSamAppValues, CreateSamAppC
                 <p>Application Name: </p>
                 <Input<CreateSamAppValues>
                     name="appName"
-                    value={this.state.values.runtime}
+                    value={this.state.values.appName}
                     setState={(key: keyof CreateSamAppValues, value: string, callback?: () => void) =>
                         this.setSingleValueInState(key, value, callback)
                     }
@@ -51,7 +51,7 @@ export class CreateSamApp extends AwsComponent<CreateSamAppValues, CreateSamAppC
                 <p>Runtime:</p>
                 <SelectDropDown<CreateSamAppValues>
                     name="runtime"
-                    value={this.state.values.appName}
+                    value={this.state.values.runtime}
                     options={options}
                     placeholder="Runtimes"
                     setState={(key: keyof CreateSamAppValues, value: string, callback?: () => void) =>
@@ -61,18 +61,33 @@ export class CreateSamApp extends AwsComponent<CreateSamAppValues, CreateSamAppC
                 <p>Location: </p>
                 {/* This doesn't need stateInteractors. Create a new type? Make this a primitive? */}
                 <DirectoryPicker<CreateSamAppValues, CreateSamAppCommands>
+                    name="directory"
                     value={this.state.values.directory}
                     command="selectDirectory"
                     text="Choose Directory"
                     stateInteractors={this.createStateInteractors()}
                 />
-                <Button onClick={() => this.onSubmit()} text="Create SAM Application" />
+                <Button
+                    onClick={() => this.onSubmit()}
+                    text="Create SAM Application"
+                    isInactive={this.isButtonInactive()}
+                />
             </div>
         )
     }
 
     private onSubmit() {
         this.postMessageToVsCode('createSamApp')
+    }
+
+    private isButtonInactive(): boolean {
+        return (
+            this.state.values.appName === '' ||
+            this.state.values.directory === '' ||
+            this.state.values.runtime === '' ||
+            this.state.statusFields.invalidFields.size > 0 ||
+            this.state.statusFields.loadingFields.size > 0
+        )
     }
 }
 

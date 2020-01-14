@@ -27,7 +27,7 @@ function generateDefaultInvokerState(): AwsComponentState<InvokerValues> {
     }
 }
 
-export class Invoker extends AwsComponent<InvokerValues, InvokerCommands> {
+export class InvokeRemote extends AwsComponent<InvokerValues, InvokerCommands> {
     public render() {
         return (
             <div>
@@ -67,6 +67,6 @@ export class Invoker extends AwsComponent<InvokerValues, InvokerCommands> {
 }
 
 ReactDOM.render(
-    <Invoker vscode={vscode} defaultState={generateDefaultInvokerState()} />,
+    <InvokeRemote vscode={vscode} defaultState={generateDefaultInvokerState()} />,
     document.getElementById('reactApp')
 )
