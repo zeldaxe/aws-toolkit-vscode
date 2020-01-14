@@ -106,12 +106,13 @@ export interface PrimitiveProps<Values> {
     isLoading?: boolean
 }
 
-export interface SubComponentProps<Values> {
+export interface SubComponentProps<Values, Commands> {
     stateInteractors: {
         setSingleState(key: keyof Values, value: any, callback: () => void): void
         setStatusInSet(set: keyof StatusFields<Values>, value: keyof Values): void
         removeStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): void
         getStatusFromSet(set: keyof StatusFields<Values>, value: keyof Values): boolean
+        postMessageToVsCode(command: Commands): void
     }
 }
 

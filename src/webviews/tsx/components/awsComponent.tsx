@@ -132,7 +132,7 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * @param value Value to insert
      * @param callback Callback function to run AFTER state has been set.
      */
-    protected setSingleValueInState<T>(key: string, value: T, callback?: () => void): void {
+    protected setSingleValueInState<T>(key: keyof Values, value: T, callback?: () => void): void {
         const typesafeKey = key as keyof Values
         this.setState(
             {
@@ -144,70 +144,6 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
             },
             callback
         )
-    }
-
-    /**
-     * Adds field to invalidFields set
-     * @param field field to add
-     */
-    protected addInvalidField(field: keyof Values): void {
-        this.addFieldToSet('invalidFields', field)
-    }
-
-    /**
-     * Removes field from invalidFields set
-     * @param field field to remove
-     */
-    protected removeInvalidField(field: keyof Values): void {
-        this.removeFieldFromSet('invalidFields', field)
-    }
-
-    /**
-     * Adds field to inactiveFields set
-     * @param field field to add
-     */
-    protected addInactiveField(field: keyof Values): void {
-        this.addFieldToSet('inactiveFields', field)
-    }
-
-    /**
-     * Removes field from inactiveFields set
-     * @param field field to remove
-     */
-    protected removeInactiveField(field: keyof Values): void {
-        this.removeFieldFromSet('inactiveFields', field)
-    }
-
-    /**
-     * Adds field to loadingFields set
-     * @param field field to add
-     */
-    protected addLoadingField(field: keyof Values): void {
-        this.addFieldToSet('loadingFields', field)
-    }
-
-    /**
-     * Removes field from loadingFields set
-     * @param field field to remove
-     */
-    protected removeLoadingField(field: keyof Values): void {
-        this.removeFieldFromSet('loadingFields', field)
-    }
-
-    /**
-     * Adds field to hiddenFields set
-     * @param field field to add
-     */
-    protected addHiddenField(field: keyof Values): void {
-        this.addFieldToSet('hiddenFields', field)
-    }
-
-    /**
-     * Removes field from hiddenFields set
-     * @param field field to remove
-     */
-    protected removeHiddenField(field: keyof Values): void {
-        this.removeFieldFromSet('hiddenFields', field)
     }
 
     /**
@@ -267,6 +203,19 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
             ...this.state,
             [set]: modifiedSet
         })
+    }
+
+    protected createStateInteractors() {
+        return {
+            setSingleState: (key: keyof Values, value: string, callback: () => void) =>
+                this.setSingleValueInState(key, value, callback),
+            setStatusInSet: (set: keyof StatusFields<Values>, value: keyof Values) => this.addFieldToSet(set, value),
+            removeStatusFromSet: (set: keyof StatusFields<Values>, value: keyof Values) =>
+                this.removeFieldFromSet(set, value),
+            getStatusFromSet: (set: keyof StatusFields<Values>, field: keyof Values) =>
+                this.checkFieldInSet(set, field),
+            postMessageToVsCode: (command: Commands) => this.postMessageToVsCode(command)
+        }
     }
 
     /**

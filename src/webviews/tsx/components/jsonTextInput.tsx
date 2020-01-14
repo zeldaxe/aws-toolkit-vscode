@@ -7,7 +7,7 @@ import * as React from 'react'
 import { SubComponentProps } from '../interfaces/common'
 import { TextArea } from './primitives/textArea'
 
-export interface JsonTextInputProps<Values> extends SubComponentProps<Values> {
+export interface JsonTextInputProps<Values, Commands> extends SubComponentProps<Values, Commands> {
     name: keyof Values
     value: string
     placeholder: string
@@ -18,7 +18,7 @@ export interface JsonTextInputProps<Values> extends SubComponentProps<Values> {
     onBlurAction?(target: HTMLTextAreaElement): void
 }
 
-export function JsonTextInput<Values>(props: JsonTextInputProps<Values>) {
+export function JsonTextInput<Values, Commands>(props: JsonTextInputProps<Values, Commands>) {
     return (
         <div>
             <TextArea<Values>

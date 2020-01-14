@@ -8,19 +8,19 @@ import { SelectOption, SubComponentProps } from '../interfaces/common'
 import { JsonTextInput } from './jsonTextInput'
 import { SelectDropDown } from './primitives/selectDropDown'
 
-export interface LambdaTemplateInputProps<Values> extends SubComponentProps<Values> {
+export interface LambdaTemplateInputProps<Values, Commands> extends SubComponentProps<Values, Commands> {
     templateOptions: SelectOption[]
     templateName: keyof Values
     templateValue: string
     jsonName: keyof Values
     jsonValue: string
+    onChangeCommand: Commands
     jsonRows?: number
     jsonCols?: number
     invalidJsonMessage?: string
-    onSelectTemplate(): void
 }
 
-export function LambdaTemplateInput<Values>(props: LambdaTemplateInputProps<Values>) {
+export function LambdaTemplateInput<Values, Commands>(props: LambdaTemplateInputProps<Values, Commands>) {
     return (
         <div>
             <h3>Enter a JSON payload (or select a template from the list below)</h3>
@@ -33,11 +33,11 @@ export function LambdaTemplateInput<Values>(props: LambdaTemplateInputProps<Valu
                     props.stateInteractors.setSingleState(key, value, callback)
                 }
                 isInactive={props.stateInteractors.getStatusFromSet('inactiveFields', props.templateName)}
-                onSelectAction={() => props.onSelectTemplate()}
+                onSelectAction={() => onSelectTemplate(props)}
             />
             <br />
             <h3>JSON Payload</h3>
-            <JsonTextInput<Values>
+            <JsonTextInput<Values, Commands>
                 name={props.jsonName}
                 value={props.jsonValue}
                 placeholder="JSON Payload"
@@ -48,4 +48,11 @@ export function LambdaTemplateInput<Values>(props: LambdaTemplateInputProps<Valu
             />
         </div>
     )
+}
+
+function onSelectTemplate<Values, Commands>(props: LambdaTemplateInputProps<Values, Commands>) {
+    props.stateInteractors.setStatusInSet('inactiveFields', props.templateName)
+    props.stateInteractors.setStatusInSet('inactiveFields', props.jsonName)
+    props.stateInteractors.setStatusInSet('loadingFields', props.jsonName)
+    props.stateInteractors.postMessageToVsCode(props.onChangeCommand)
 }
