@@ -59,7 +59,6 @@ export class CreateSamApp extends AwsComponent<CreateSamAppValues, CreateSamAppC
                     }
                 />
                 <p>Location: </p>
-                {/* This doesn't need stateInteractors. Create a new type? Make this a primitive? */}
                 <DirectoryPicker<CreateSamAppValues, CreateSamAppCommands>
                     name="directory"
                     value={this.state.values.directory}

@@ -1,5 +1,5 @@
 /*!
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -86,9 +86,9 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
     /**
      * Typed setState call that also deep merges the top level state object.
      *
-     * Any lower-level merges need to be done manually.
+     * This only merges into the `values` field, not the `statusFields`.
      *
-     * TODO: Is this really typesafe? Will this really force that this is a key, and that the value is correctly-typed?
+     * Any lower-level merges need to be done manually.
      *
      * **WARNING:** THIS IS NOT SYNCHRONOUS.
      * @param key Key to insert as
@@ -96,13 +96,12 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * @param callback Callback function to run AFTER state has been set.
      */
     protected setSingleValueInState<T>(key: keyof Values, value: T, callback?: () => void): void {
-        const typesafeKey = key as keyof Values
         this.setState(
             {
                 ...this.state,
                 values: {
                     ...this.state.values,
-                    [typesafeKey]: value
+                    [key]: value
                 }
             },
             callback

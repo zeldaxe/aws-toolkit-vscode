@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// import * as fs from 'fs'
-import * as _ from 'lodash'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
@@ -61,16 +59,15 @@ export async function createReactWebview<Values, Commands>(params: reactWebviewP
             vscode.Uri.file(jsPath),
             vscode.Uri.file(cssPath),
             vscode.Uri.file(webviewPath)
-        ]
+        ],
+        retainContextWhenHidden: params.persistWithoutFocus
     })
 
-    let loadLibs = ExtensionUtilities.getFilesAsVsCodeResources(
+    const loadLibs = ExtensionUtilities.getFilesAsVsCodeResources(
         libsPath,
         ['react.development.js', 'react-dom.development.js'],
         view.webview
-    )
-
-    loadLibs = loadLibs.concat(ExtensionUtilities.getFilesAsVsCodeResources(jsPath, ['loadVsCodeApi.js'], view.webview))
+    ).concat(ExtensionUtilities.getFilesAsVsCodeResources(jsPath, ['loadVsCodeApi.js'], view.webview))
 
     let scripts: String = ''
 
