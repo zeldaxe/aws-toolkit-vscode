@@ -7,7 +7,6 @@ import * as nls from 'vscode-nls'
 const localize = nls.loadMessageBundle()
 
 import * as vscode from 'vscode'
-import { TelemetryNamespace } from '../shared/telemetry/telemetryTypes'
 import { registerCommand } from '../shared/telemetry/telemetryUtils'
 import * as picker from '../shared/ui/picker'
 import {
@@ -33,10 +32,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 context
             })
         },
-        telemetryName: {
-            namespace: TelemetryNamespace.Project,
-            name: 'new'
-        }
+        telemetryName: 'project_new'
     })
 }
 

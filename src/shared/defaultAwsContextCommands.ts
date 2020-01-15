@@ -7,55 +7,24 @@ import * as nls from 'vscode-nls'
 const localize = nls.loadMessageBundle()
 
 import { Credentials } from 'aws-sdk'
-import { env, Uri, ViewColumn, window, workspace } from 'vscode'
+import { env, Uri, ViewColumn, window } from 'vscode'
+import { LoginManager } from '../credentials/loginManager'
+import { asString, fromString } from '../credentials/providers/credentialsProviderId'
+import { CredentialsProviderManager } from '../credentials/providers/credentialsProviderManager'
 import { AwsContext } from './awsContext'
 import { AwsContextTreeCollection } from './awsContextTreeCollection'
 import * as extensionConstants from './constants'
+import { getAccountId } from './credentials/accountId'
 import { CredentialSelectionState } from './credentials/credentialSelectionState'
 import {
     credentialProfileSelector,
     DefaultCredentialSelectionDataProvider,
     promptToDefineCredentialsProfile
 } from './credentials/defaultCredentialSelectionDataProvider'
-import { DefaultCredentialsFileReaderWriter } from './credentials/defaultCredentialsFileReaderWriter'
-import { CredentialsValidationResult, UserCredentialsUtils } from './credentials/userCredentialsUtils'
+import { UserCredentialsUtils } from './credentials/userCredentialsUtils'
 import { ext } from './extensionGlobals'
 import { RegionInfo } from './regions/regionInfo'
 import { RegionProvider } from './regions/regionProvider'
-
-/**
- * The actions that can be taken when we discover that a profile's default region is not
- * showing in the Explorer.
- *
- * Keep this in sync with the onDefaultRegionMissing configuration defined in package.json.
- */
-enum OnDefaultRegionMissingOperation {
-    /**
-     * Ask the user what they would like to happen
-     */
-    Prompt = 'prompt',
-    /**
-     * Automatically add the region to the Explorer
-     */
-    Add = 'add',
-    /**
-     * Do nothing
-     */
-    Ignore = 'ignore'
-}
-
-class DefaultRegionMissingPromptItems {
-    public static readonly add: string = localize('AWS.message.prompt.defaultRegionHidden.add', 'Yes')
-    public static readonly alwaysAdd: string = localize(
-        'AWS.message.prompt.defaultRegionHidden.alwaysAdd',
-        "Yes, and don't ask again"
-    )
-    public static readonly ignore: string = localize('AWS.message.prompt.defaultRegionHidden.ignore', 'No')
-    public static readonly alwaysIgnore: string = localize(
-        'AWS.message.prompt.defaultRegionHidden.alwaysIgnore',
-        "No, and don't ask again"
-    )
-}
 
 export class DefaultAWSContextCommands {
     private readonly _awsContext: AwsContext
@@ -65,7 +34,8 @@ export class DefaultAWSContextCommands {
     public constructor(
         awsContext: AwsContext,
         awsContextTrees: AwsContextTreeCollection,
-        regionProvider: RegionProvider
+        regionProvider: RegionProvider,
+        private readonly loginManager: LoginManager
     ) {
         this._awsContext = awsContext
         this._awsContextTrees = awsContextTrees
@@ -78,14 +48,8 @@ export class DefaultAWSContextCommands {
             // user clicked away from quick pick or entered nothing
             return
         }
-        const successfulLogin = await UserCredentialsUtils.addUserDataToContext(profileName, this._awsContext)
-        if (successfulLogin) {
-            this.refresh()
-            await this.checkExplorerForDefaultRegion(profileName)
-        } else {
-            await this.onCommandLogout()
-            await UserCredentialsUtils.notifyUserCredentialsAreBad(profileName)
-        }
+
+        await this.loginManager.login(fromString(profileName))
     }
 
     public async onCommandCreateCredentialsProfile(): Promise<void> {
@@ -96,12 +60,7 @@ export class DefaultAWSContextCommands {
             const profileName: string | undefined = await this.promptAndCreateNewCredentialsFile()
 
             if (profileName) {
-                const successfulLogin = await UserCredentialsUtils.addUserDataToContext(profileName, this._awsContext)
-                if (!successfulLogin) {
-                    // credentials are invalid. Prompt user and log out
-                    await this.onCommandLogout()
-                    await UserCredentialsUtils.notifyUserCredentialsAreBad(profileName)
-                }
+                await this.loginManager.login(fromString(profileName))
             }
         } else {
             // Get the editor set up and turn things over to the user
@@ -110,8 +69,7 @@ export class DefaultAWSContextCommands {
     }
 
     public async onCommandLogout() {
-        await UserCredentialsUtils.removeUserDataFromContext(this._awsContext)
-        this.refresh()
+        await this.loginManager.logout()
     }
 
     public async onCommandShowRegion() {
@@ -153,11 +111,10 @@ export class DefaultAWSContextCommands {
                 return undefined
             }
 
-            const validationResult: CredentialsValidationResult = await UserCredentialsUtils.validateCredentials(
-                new Credentials(state.accesskey, state.secretKey)
-            )
+            // TODO : Get a region relevant to the partition for these credentials -- https://github.com/aws/aws-toolkit-vscode/issues/188
+            const accountId = await getAccountId(new Credentials(state.accesskey, state.secretKey), 'us-east-1')
 
-            if (validationResult.isValid) {
+            if (accountId) {
                 await UserCredentialsUtils.generateCredentialDirectoryIfNonexistent()
                 await UserCredentialsUtils.generateCredentialsFile(ext.context.extensionPath, {
                     profileName: state.profileName,
@@ -174,8 +131,7 @@ export class DefaultAWSContextCommands {
             const response = await window.showWarningMessage(
                 localize(
                     'AWS.message.prompt.credentials.definition.tryAgain',
-                    'The credentials do not appear to be valid ({0}). Would you like to try again?',
-                    validationResult.invalidMessage!
+                    'The credentials do not appear to be valid. Check the AWS Toolkit Logs for details. Would you like to try again?'
                 ),
                 responseYes,
                 responseNo
@@ -196,8 +152,6 @@ export class DefaultAWSContextCommands {
      * editing their credentials file.
      */
     private async getProfileNameFromUser(): Promise<string | undefined> {
-        await new DefaultCredentialsFileReaderWriter().setCanUseConfigFileIfExists()
-
         const responseYes: string = localize('AWS.generic.response.yes', 'Yes')
         const responseNo: string = localize('AWS.generic.response.no', 'No')
 
@@ -219,8 +173,9 @@ export class DefaultAWSContextCommands {
 
             return await this.promptAndCreateNewCredentialsFile()
         } else {
-            const credentialReaderWriter = new DefaultCredentialsFileReaderWriter()
-            const profileNames = await credentialReaderWriter.getProfileNames()
+            const profileNames = (
+                await CredentialsProviderManager.getInstance().getAllCredentialsProviders()
+            ).map(provider => asString(provider.getCredentialsProviderId()))
 
             // If no credentials were found, the user should be
             // encouraged to define some.
@@ -329,91 +284,5 @@ export class DefaultAWSContextCommands {
         })
 
         return input ? input.detail : undefined
-    }
-
-    private async checkExplorerForDefaultRegion(profileName: string): Promise<void> {
-        const credentialReaderWriter = new DefaultCredentialsFileReaderWriter()
-
-        const profileRegion = await credentialReaderWriter.getDefaultRegion(profileName)
-        if (!profileRegion) {
-            return
-        }
-
-        const explorerRegions = new Set(await this._awsContext.getExplorerRegions())
-        if (explorerRegions.has(profileRegion)) {
-            return
-        }
-
-        // Explorer does not contain the default region. See if we should add it.
-        const config = workspace.getConfiguration(extensionConstants.extensionSettingsPrefix)
-
-        const defaultAction = config.get<OnDefaultRegionMissingOperation>(
-            'onDefaultRegionMissing',
-            OnDefaultRegionMissingOperation.Prompt
-        )
-
-        // Bypass prompt if user has requested to suppress it.
-        if (defaultAction === OnDefaultRegionMissingOperation.Add) {
-            await this.addRegion(profileRegion)
-
-            return
-        } else if (defaultAction === OnDefaultRegionMissingOperation.Ignore) {
-            return
-        }
-
-        // Ask user what to do
-        const regionHiddenResponse = await window.showQuickPick(
-            [
-                DefaultRegionMissingPromptItems.add,
-                DefaultRegionMissingPromptItems.alwaysAdd,
-                DefaultRegionMissingPromptItems.ignore,
-                DefaultRegionMissingPromptItems.alwaysIgnore
-            ],
-            {
-                placeHolder: localize(
-                    'AWS.message.prompt.defaultRegionHidden',
-                    // prettier-ignore
-                    "This profile's default region ({0}) is currently hidden. Would you like to show it in the Explorer?",
-                    profileRegion
-                )
-            }
-        )
-
-        // User Cancelled
-        if (!regionHiddenResponse) {
-            return
-        }
-
-        switch (regionHiddenResponse) {
-            case DefaultRegionMissingPromptItems.add:
-            case DefaultRegionMissingPromptItems.alwaysAdd:
-                await this.addRegion(profileRegion)
-                break
-        }
-
-        switch (regionHiddenResponse) {
-            case DefaultRegionMissingPromptItems.alwaysAdd:
-            case DefaultRegionMissingPromptItems.alwaysIgnore:
-                // User does not want to be prompted anymore
-                const action =
-                    regionHiddenResponse === DefaultRegionMissingPromptItems.alwaysAdd
-                        ? OnDefaultRegionMissingOperation.Add
-                        : OnDefaultRegionMissingOperation.Ignore
-                await config.update('onDefaultRegionMissing', action, !workspace.name)
-                window.showInformationMessage(
-                    localize(
-                        'AWS.message.prompt.defaultRegionHidden.suppressed',
-                        // prettier-ignore
-                        "You will no longer be asked what to do when the current profile's default region is hidden from the Explorer. This behavior can be changed by modifying the '{0}' setting.",
-                        'aws.onDefaultRegionMissing'
-                    )
-                )
-                break
-        }
-    }
-
-    private async addRegion(profileRegion: string): Promise<void> {
-        await this._awsContext.addExplorerRegion(profileRegion)
-        this.refresh()
     }
 }

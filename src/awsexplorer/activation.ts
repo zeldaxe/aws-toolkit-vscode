@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as path from 'path'
 import * as vscode from 'vscode'
 import * as xml2js from 'xml2js'
 
@@ -18,10 +17,12 @@ import { AwsContextTreeCollection } from '../shared/awsContextTreeCollection'
 import { LambdaClient } from '../shared/clients/lambdaClient'
 import { ext } from '../shared/extensionGlobals'
 import { safeGet } from '../shared/extensionUtilities'
+import { getLogger } from '../shared/logger'
 import { RegionProvider } from '../shared/regions/regionProvider'
-import { ResourceFetcher } from '../shared/resourceFetcher'
-import { FileResourceLocation, WebResourceLocation } from '../shared/resourceLocation'
-import { TelemetryNamespace } from '../shared/telemetry/telemetryTypes'
+import { CompositeResourceFetcher } from '../shared/resourcefetcher/compositeResourceFetcher'
+import { FileResourceFetcher } from '../shared/resourcefetcher/fileResourceFetcher'
+import { HttpResourceFetcher } from '../shared/resourcefetcher/httpResourceFetcher'
+import { ResourceFetcher } from '../shared/resourcefetcher/resourcefetcher'
 import { registerCommand } from '../shared/telemetry/telemetryUtils'
 import { AWSTreeNodeBase } from '../shared/treeview/nodes/awsTreeNodeBase'
 import { ErrorNode } from '../shared/treeview/nodes/errorNode'
@@ -34,6 +35,7 @@ import {
 } from '../webviews/tsx/interfaces/common'
 import { InvokerCommands, InvokerContext, InvokerValues } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
+import { checkExplorerForDefaultRegion } from './defaultRegion'
 import { RegionNode } from './regionNode'
 
 /**
@@ -45,7 +47,6 @@ export async function activate(activateArguments: {
     context: vscode.ExtensionContext
     awsContextTrees: AwsContextTreeCollection
     regionProvider: RegionProvider
-    resourceFetcher: ResourceFetcher
 }): Promise<void> {
     const awsExplorer = new AwsExplorer(activateArguments.awsContext, activateArguments.regionProvider)
 
@@ -53,34 +54,47 @@ export async function activate(activateArguments: {
         vscode.window.registerTreeDataProvider(awsExplorer.viewProviderId, awsExplorer)
     )
 
-    await registerAwsExplorerCommands(awsExplorer, activateArguments.awsContext, activateArguments.resourceFetcher)
+    await registerAwsExplorerCommands(awsExplorer)
 
-    await registerExperimentalCommand(activateArguments.context, activateArguments.resourceFetcher)
+    await recordNumberOfActiveRegionsMetric(awsExplorer)
+
+    await registerExperimentalCommand(activateArguments.context)
 
     activateArguments.awsContextTrees.addTree(awsExplorer)
+
+    updateAwsExplorerWhenAwsContextCredentialsChange(
+        awsExplorer,
+        activateArguments.awsContext,
+        activateArguments.context
+    )
 }
 
 async function registerAwsExplorerCommands(
     awsExplorer: AwsExplorer,
-    awsContext: AwsContext,
-    resourceFetcher: ResourceFetcher,
     lambdaOutputChannel: vscode.OutputChannel = vscode.window.createOutputChannel('AWS Lambda')
 ): Promise<void> {
     registerCommand({
         command: 'aws.showRegion',
-        callback: async () => await ext.awsContextCommands.onCommandShowRegion()
+        callback: async () => {
+            await ext.awsContextCommands.onCommandShowRegion()
+            await recordNumberOfActiveRegionsMetric(awsExplorer)
+        },
+        telemetryName: 'Command_aws.showRegion'
     })
 
     registerCommand({
         command: 'aws.hideRegion',
         callback: async (node?: RegionNode) => {
             await ext.awsContextCommands.onCommandHideRegion(safeGet(node, x => x.regionCode))
-        }
+            await recordNumberOfActiveRegionsMetric(awsExplorer)
+        },
+        telemetryName: 'Command_aws.hideRegion'
     })
 
     registerCommand({
         command: 'aws.refreshAwsExplorer',
-        callback: async () => awsExplorer.refresh()
+        callback: async () => awsExplorer.refresh(),
+        telemetryName: 'Command_aws.refreshAwsExplorer'
     })
 
     registerCommand({
@@ -92,47 +106,38 @@ async function registerAwsExplorerCommands(
                 outputChannel: lambdaOutputChannel,
                 onRefresh: () => awsExplorer.refresh(node.parent)
             }),
-        telemetryName: {
-            namespace: TelemetryNamespace.Lambda,
-            name: 'delete'
-        }
+        telemetryName: 'lambda_delete'
     })
 
     registerCommand({
         command: 'aws.deleteCloudFormation',
         callback: async (node: CloudFormationStackNode) =>
             await deleteCloudFormation(() => awsExplorer.refresh(node.parent), node),
-        telemetryName: {
-            namespace: TelemetryNamespace.Cloudformation,
-            name: 'delete'
-        }
+        telemetryName: 'cloudformation_delete'
     })
 
     registerCommand({
         command: 'aws.showErrorDetails',
-        callback: async (node: ErrorNode) => await showErrorDetails(node)
+        callback: async (node: ErrorNode) => await showErrorDetails(node),
+        telemetryName: 'Command_aws.showErrorDetails'
     })
 
     registerCommand({
         command: 'aws.invokeLambda',
         callback: async (node: LambdaFunctionNode) =>
             await invokeLambda({
-                awsContext: awsContext,
                 functionNode: node,
-                outputChannel: lambdaOutputChannel,
-                resourceFetcher: resourceFetcher
+                outputChannel: lambdaOutputChannel
             }),
-        telemetryName: {
-            namespace: TelemetryNamespace.Lambda,
-            name: 'invokeremote'
-        }
+        telemetryName: 'lambda_invokeremote'
     })
 
     registerCommand({
         command: 'aws.refreshAwsExplorerNode',
         callback: async (awsexplorer: AwsExplorer, element: AWSTreeNodeBase) => {
             awsexplorer.refresh(element)
-        }
+        },
+        telemetryName: 'Command_aws.refreshAwsExplorerNode'
     })
 }
 
@@ -147,7 +152,6 @@ interface SampleRequestManifest {
 
 async function registerExperimentalCommand(
     context: vscode.ExtensionContext,
-    resourceFetcher: ResourceFetcher,
     outputChannel: vscode.OutputChannel = vscode.window.createOutputChannel('AWS Lambda')
 ) {
     registerCommand({
@@ -158,12 +162,11 @@ async function registerExperimentalCommand(
                 outputChannel
             }
 
-            const sampleInput = await resourceFetcher.getResource([
-                new WebResourceLocation(sampleRequestManifestPath),
-                new FileResourceLocation(
-                    path.join(ext.context.extensionPath, 'resources', 'vs-lambda-sample-request-manifest.xml')
-                )
-            ])
+            const sampleInput = await makeSampleRequestManifestResourceFetcher().get()
+
+            if (!sampleInput) {
+                throw new Error('Unable to retrieve Sample Request manifest')
+            }
 
             const availableTemplates: SelectOption[] = []
 
@@ -187,7 +190,7 @@ async function registerExperimentalCommand(
                 name: 'Sample Invoker!',
                 webviewJs: 'invokeRemote.js',
                 onDidReceiveMessageFunction: async (message, postMessageFn, destroyWebviewFn) =>
-                    invokeLambdaExperiment(message, postMessageFn, destroyWebviewFn, handlerContext, resourceFetcher),
+                    invokeLambdaExperiment(message, postMessageFn, destroyWebviewFn, handlerContext),
                 context,
                 initialState: {
                     values: {
@@ -200,10 +203,7 @@ async function registerExperimentalCommand(
                 }
             })
         },
-        telemetryName: {
-            namespace: TelemetryNamespace.Aws,
-            name: 'reactInvoker'
-        }
+        telemetryName: 'lambda_reactInvoker'
     })
 }
 
@@ -211,8 +211,7 @@ async function invokeLambdaExperiment(
     output: AwsComponentToBackendMessage<InvokerValues, InvokerCommands>,
     postMessageFn: (event: BackendToAwsComponentMessage<InvokerValues>) => Thenable<boolean>,
     destroyWebviewFn: () => any,
-    context: InvokerContext,
-    resourceFetcher: ResourceFetcher
+    context: InvokerContext
 ) {
     const outputChannel = context.outputChannel
     const fn = context.node
@@ -220,12 +219,9 @@ async function invokeLambdaExperiment(
 
     switch (output.command) {
         case 'sampleRequestSelected':
-            const sample = await resourceFetcher.getResource([
-                new WebResourceLocation(`${sampleRequestPath}${output.values.template}`),
-                new FileResourceLocation(
-                    path.join(ext.context.extensionPath, 'resources', 'vs-lambda-sample-request-manifest.xml')
-                )
-            ])
+            const sampleUrl = `${sampleRequestPath}${output.values.template}`
+
+            const sample = (await new HttpResourceFetcher(sampleUrl).get()) ?? ''
 
             postMessageFn({
                 values: {
@@ -271,4 +267,38 @@ async function invokeLambdaExperiment(
 
             return
     }
+}
+
+async function recordNumberOfActiveRegionsMetric(awsExplorer: AwsExplorer) {
+    const numOfActiveRegions = awsExplorer.getRegionNodesSize()
+    const currTime = new Date()
+
+    ext.telemetry.record({
+        createTime: currTime,
+        data: [{ MetricName: 'vscode_activeregions', Value: numOfActiveRegions, Unit: 'Count' }]
+    })
+}
+
+function updateAwsExplorerWhenAwsContextCredentialsChange(
+    awsExplorer: AwsExplorer,
+    awsContext: AwsContext,
+    extensionContext: vscode.ExtensionContext
+) {
+    extensionContext.subscriptions.push(
+        awsContext.onDidChangeContext(async credentialsChangedEvent => {
+            getLogger().verbose(`Credentials changed (${credentialsChangedEvent.profileName}), updating AWS Explorer`)
+            awsExplorer.refresh()
+
+            if (credentialsChangedEvent.profileName) {
+                await checkExplorerForDefaultRegion(credentialsChangedEvent.profileName, awsContext, awsExplorer)
+            }
+        })
+    )
+}
+
+function makeSampleRequestManifestResourceFetcher(templatePath: string = ''): ResourceFetcher {
+    return new CompositeResourceFetcher(
+        new HttpResourceFetcher(`${sampleRequestManifestPath}${templatePath}`),
+        new FileResourceFetcher(ext.manifestPaths.lambdaSampleRequests)
+    )
 }

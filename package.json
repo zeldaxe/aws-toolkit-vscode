@@ -2,7 +2,7 @@
     "name": "aws-toolkit-vscode",
     "displayName": "AWS Toolkit for Visual Studio Code",
     "description": "An extension for working with Amazon Web Services in Visual Studio Code",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "publisher": "amazonwebservices",
     "license": "Apache-2.0",
     "repository": {
@@ -66,6 +66,11 @@
                     "type": "string",
                     "default": "prompt",
                     "markdownDescription": "%AWS.configuration.description.onDefaultRegionMissing%"
+                },
+                "aws.sam.template.depth": {
+                    "type": "number",
+                    "default": 4,
+                    "description": "%AWS.configuration.sam.template.depth%"
                 },
                 "aws.samcli.location": {
                     "type": "string",
@@ -167,6 +172,14 @@
                 },
                 {
                     "command": "aws.viewSchemaItem",
+                    "when": "false"
+                },
+                {
+                    "command": "aws.searchSchema",
+                    "when": "false"
+                },
+                {
+                    "command": "aws.searchSchemaPerRegistry",
                     "when": "false"
                 },
                 {
@@ -469,10 +482,10 @@
         "generateNonCodeFiles": "ts-node ./build-scripts/generateNonCodeFiles.ts",
         "reset": "node ./build-scripts/clean.js dist node_modules && npm install",
         "copyNonCodeFiles": "node ./build-scripts/copyNonCodeFiles.js",
-        "buildScripts": "npm run bundleDeps && npm run copyNonCodeFiles && npm run generateNonCodeFiles",
-        "compile": "webpack --mode development && npm run buildWebviews && npm run buildScripts",
+        "buildScripts": "npm run buildWebviews && npm run bundleDeps && npm run copyNonCodeFiles && npm run generateNonCodeFiles",
+        "compile": "webpack --mode development && npm run buildScripts",
         "recompile": "npm run clean && npm run compile",
-        "watch": "npm run buildScripts && webpack --mode development --watch",
+        "watch": "npm run buildScripts && tsc -watch -p ./",
         "postinstall": "ts-node ./build-scripts/generateServiceClient.ts",
         "testCompile": "tsc -p ./ && npm run buildScripts",
         "test": "npm run testCompile && ts-node ./test-scripts/test.ts",
@@ -515,20 +528,20 @@
         "lolex": "^4.2.0",
         "marked": "^0.7.0",
         "mocha": "^6.2.0",
-        "prettier": "^1.17.1",
+        "prettier": "^1.19.1",
         "pretty-quick": "^1.10.0",
         "readline-sync": "^1.4.9",
         "remap-istanbul": "^0.12.0",
         "sinon": "^7.4.2",
         "source-map-loader": "^0.2.4",
-        "terser-webpack-plugin": "^2.2.1",
+        "terser-webpack-plugin": "^2.3.1",
         "ts-loader": "^6.2.1",
-        "ts-node": "^8.3.0",
-        "tslint": "^5.11.0",
+        "ts-node": "^8.5.2",
+        "tslint": "^5.20.0",
         "tslint-eslint-rules": "^5.4.0",
-        "tslint-no-circular-imports": "^0.6.1",
+        "tslint-no-circular-imports": "^0.7.0",
         "typescript": "^3.7.3",
-        "vsce": "^1.59.0",
+        "vsce": "^1.69.0",
         "vscode-nls-dev": "^3.3.1",
         "vscode-test": "^1.2.3",
         "webpack": "^4.41.3",
@@ -542,11 +555,11 @@
         "cross-spawn": "^6.0.5",
         "del": "^3.0.0",
         "fs-extra": "^8.1.0",
-        "handlebars": "^4.1.2",
+        "handlebars": "^4.5.3",
         "immutable": "^4.0.0-rc.12",
         "js-yaml": "^3.13.1",
         "jsonc-parser": "^2.0.2",
-        "lodash": "^4.17.14",
+        "lodash": "^4.17.15",
         "moment": "^2.24.0",
         "original-fs": "^1.1.0",
         "react": "^16.12.0",

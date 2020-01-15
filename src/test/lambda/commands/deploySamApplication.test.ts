@@ -26,7 +26,6 @@ import {
     SamCliVersionValidation
 } from '../../../shared/sam/cli/samCliValidator'
 import { ChildProcessResult } from '../../../shared/utilities/childProcess'
-import { FakeExtensionContext } from '../../fakeExtensionContext'
 import { FakeChannelLogger } from '../../shared/fakeChannelLogger'
 import { FakeChildProcessResult, TestSamCliProcessInvoker } from '../../shared/sam/cli/testSamCliProcessInvoker'
 
@@ -119,9 +118,10 @@ describe('deploySamApplication', async () => {
         }
     }
 
-    let testProfileName: string | undefined
-    const awsContext: Pick<AwsContext, 'getCredentialProfileName'> = {
-        getCredentialProfileName: () => testProfileName
+    const placeholderCredentials = ({} as any) as AWS.Credentials
+    let testCredentials: AWS.Credentials | undefined
+    const awsContext: Pick<AwsContext, 'getCredentials'> = {
+        getCredentials: async () => testCredentials
     }
 
     let channelLogger: FakeChannelLogger
@@ -133,8 +133,6 @@ describe('deploySamApplication', async () => {
         }
     }
 
-    const extContext = new FakeExtensionContext()
-
     let tempToolkitFolder: string
     beforeEach(async () => {
         channelLogger = new FakeChannelLogger()
@@ -143,7 +141,7 @@ describe('deploySamApplication', async () => {
         const templatePath = path.join(tempToolkitFolder, 'template.yaml')
         writeFile(templatePath)
 
-        testProfileName = 'profile'
+        testCredentials = placeholderCredentials
         invokerCalledCount = 0
         samDeployWizardResponse = {
             parameterOverrides: new Map<string, string>(),
@@ -166,8 +164,7 @@ describe('deploySamApplication', async () => {
                 samCliContext: goodSamCliContext(),
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
@@ -180,15 +177,14 @@ describe('deploySamApplication', async () => {
     })
 
     it('informs user of error when user is not logged in', async () => {
-        testProfileName = undefined
+        testCredentials = undefined
 
         await deploySamApplication(
             {
                 samCliContext: goodSamCliContext(),
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
@@ -205,8 +201,7 @@ describe('deploySamApplication', async () => {
                 samCliContext: invalidSamCliContext,
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
@@ -225,8 +220,7 @@ describe('deploySamApplication', async () => {
                 samCliContext: goodSamCliContext(),
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
@@ -256,8 +250,7 @@ describe('deploySamApplication', async () => {
                 samCliContext: goodSamCliContext(),
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
@@ -290,8 +283,7 @@ describe('deploySamApplication', async () => {
                 samCliContext: goodSamCliContext(),
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
@@ -324,8 +316,7 @@ describe('deploySamApplication', async () => {
                 samCliContext: goodSamCliContext(),
                 channelLogger,
                 regionProvider,
-                samDeployWizard,
-                extensionContext: extContext
+                samDeployWizard
             },
             {
                 awsContext,
