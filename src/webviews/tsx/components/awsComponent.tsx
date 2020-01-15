@@ -28,9 +28,12 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
     AwsComponentProps<Values, Commands>,
     AwsComponentState<Values>
 > {
+    private isProcessingMessages: boolean
+
     public constructor(props: AwsComponentProps<Values, Commands>) {
         super(props)
         this.setExistingState(this.props.defaultState)
+        this.isProcessingMessages = false
     }
 
     /**
@@ -42,12 +45,11 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * Sets up VS Code event listener. This should be called by React automatically
      */
     public componentDidMount(): void {
-        // resetting the state with this.setState to ensure that the state is what we want
-        // we know that this.setState works at this point considering the component is now mounted
-        this.setState(this.state)
         window.addEventListener('message', event =>
-            this.generateStateFromMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
+            this.handleIncomingMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
         )
+        // process any messages that were in the queue prior to losing focus
+        this.processMessageQueue()
     }
 
     /**
@@ -55,7 +57,7 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      */
     public componentWillUnmount(): void {
         window.removeEventListener('message', event =>
-            this.generateStateFromMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
+            this.handleIncomingMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
         )
     }
 
@@ -68,13 +70,20 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * @param state State message to overwrite React state with
      * @param callback Callback function to run AFTER state has been set.
      */
-    public setState(state: AwsComponentState<Values>, callback?: () => void): void {
-        super.setState(state, () => {
+    public setState(
+        updater: (
+            state: AwsComponentState<Values>,
+            props: AwsComponentProps<Values, Commands>
+        ) => AwsComponentState<Values>,
+        callback?: () => void
+    ): void {
+        super.setState(updater, () => {
             this.props.vscode.setState({
                 inactiveFields: Array.from(this.state.statusFields.inactiveFields),
                 invalidFields: Array.from(this.state.statusFields.invalidFields),
                 loadingFields: Array.from(this.state.statusFields.loadingFields),
                 hiddenFields: Array.from(this.state.statusFields.hiddenFields),
+                messageQueue: this.state.messageQueue,
                 values: this.state.values
             })
             if (callback) {
@@ -96,16 +105,15 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * @param callback Callback function to run AFTER state has been set.
      */
     protected setSingleValueInState<T>(key: keyof Values, value: T, callback?: () => void): void {
-        this.setState(
-            {
-                ...this.state,
+        this.setState((state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {
+            return {
+                ...state,
                 values: {
-                    ...this.state.values,
+                    ...state.values,
                     [key]: value
                 }
-            },
-            callback
-        )
+            }
+        }, callback)
     }
 
     /**
@@ -118,33 +126,6 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
             values: this.state.values,
             command: command
         })
-    }
-
-    /**
-     * Handles messaging from VS Code, either via posted message or by restoring state from VS Code.
-     * Can be overwritten; it is *HIGHLY* recommended to call `super.generateStateFromMessage(message)` for state handling.
-     * @param message Partial state to merge with current state
-     */
-    protected generateStateFromMessage(message: BackendToAwsComponentMessage<Values>): void {
-        this.setState({
-            ...this.state,
-            values: {
-                ...this.state.values,
-                ...message.values
-            }
-        })
-        if (message.loadingFields) {
-            this.handleBackendAlteredFields('loadingFields', message.loadingFields)
-        }
-        if (message.invalidFields) {
-            this.handleBackendAlteredFields('invalidFields', message.invalidFields)
-        }
-        if (message.inactiveFields) {
-            this.handleBackendAlteredFields('inactiveFields', message.inactiveFields)
-        }
-        if (message.hiddenFields) {
-            this.handleBackendAlteredFields('hiddenFields', message.hiddenFields)
-        }
     }
 
     /**
@@ -166,9 +147,11 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
     protected addFieldToSet(set: keyof StatusFields<Values>, field: keyof Values): void {
         const modifiedSet = this.state.statusFields[set]
         modifiedSet.add(field)
-        this.setState({
-            ...this.state,
-            [set]: modifiedSet
+        this.setState((state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {
+            return {
+                ...state,
+                [set]: modifiedSet
+            }
         })
     }
 
@@ -182,9 +165,11 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
     protected removeFieldFromSet(set: keyof StatusFields<Values>, field: keyof Values): void {
         const modifiedSet = this.state.statusFields[set]
         modifiedSet.delete(field)
-        this.setState({
-            ...this.state,
-            [set]: modifiedSet
+        this.setState((state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {
+            return {
+                ...state,
+                [set]: modifiedSet
+            }
         })
     }
 
@@ -205,25 +190,110 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
     }
 
     /**
+     * Inserts incoming messages into message queue and begins dequeueing if dequeueing hasn't already started.
+     * Message queue is a part of React state; if a message is enqueued before the window loses focus, it will be processable when focus is restored.
+     * However, this does not protect against a window gaining and losing focus before React is mounted;
+     * This means that VS Code pushed the event into the JS Event Queue, which is dumped when the window re-loses focus.
+     * @param incomingMessage Incoming message from backend
+     */
+    protected handleIncomingMessage(incomingMessage: BackendToAwsComponentMessage<Values>): void {
+        // setState call to add message to queue
+        this.setState(
+            (state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {
+                const currQueue = state.messageQueue || []
+                currQueue.push(incomingMessage)
+
+                return {
+                    ...state,
+                    messageQueue: currQueue
+                }
+                // ...then process the message if the queue isn't already being processed
+            },
+            () => {
+                if (!this.isProcessingMessages) {
+                    this.processMessageQueue()
+                }
+            }
+        )
+    }
+
+    /**
+     * Processes message queue
+     */
+    private processMessageQueue(): void {
+        // queue is now processing message
+        this.isProcessingMessages = true
+        // should always pass
+        if (this.state.messageQueue) {
+            const messageQueue = this.state.messageQueue
+            // dequeue first message
+            const firstMessage = messageQueue.shift()
+            if (firstMessage) {
+                this.setState(
+                    (state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {
+                        // updates status fields using current state from setState function
+                        const updatedStatusFields: StatusFields<Values> = {
+                            inactiveFields: this.handleBackendAlteredFields(
+                                state.statusFields.inactiveFields,
+                                firstMessage.inactiveFields
+                            ),
+                            invalidFields: this.handleBackendAlteredFields(
+                                state.statusFields.invalidFields,
+                                firstMessage.invalidFields
+                            ),
+                            hiddenFields: this.handleBackendAlteredFields(
+                                state.statusFields.hiddenFields,
+                                firstMessage.hiddenFields
+                            ),
+                            loadingFields: this.handleBackendAlteredFields(
+                                state.statusFields.loadingFields,
+                                firstMessage.loadingFields
+                            )
+                        }
+
+                        // build new state so we only have to set once to decrease state variance
+                        return {
+                            values: {
+                                ...state.values,
+                                ...firstMessage.values
+                            },
+                            statusFields: updatedStatusFields,
+                            messageQueue // represents dequeued message queue
+                        }
+                        // recursive call to process the next message
+                    },
+                    () => this.processMessageQueue()
+                )
+            }
+        }
+        // queue is done processing messages
+        this.isProcessingMessages = false
+    }
+
+    /**
      * Handles the BackendAlteredFields type, which contains changes to be made to the AWS Component's state
      * Added fields will always be added before computing removed fields.
      * @param set Name of set in state to handle
      * @param alteredFields BackendAlteredFields from message.
      */
     private handleBackendAlteredFields(
-        set: keyof StatusFields<Values>,
-        alteredFields: BackendAlteredFields<Values>
-    ): void {
-        if (alteredFields.add) {
-            for (const field of alteredFields.add) {
-                this.addFieldToSet(set, field)
+        set: Set<keyof Values>,
+        alteredFields: BackendAlteredFields<Values> | undefined
+    ): Set<keyof Values> {
+        if (alteredFields) {
+            if (alteredFields.add) {
+                for (const field of alteredFields.add) {
+                    set.add(field)
+                }
+            }
+            if (alteredFields.remove) {
+                for (const field of alteredFields.remove) {
+                    set.delete(field)
+                }
             }
         }
-        if (alteredFields.remove) {
-            for (const field of alteredFields.remove) {
-                this.removeFieldFromSet(set, field)
-            }
-        }
+
+        return set
     }
 
     /**
@@ -256,7 +326,8 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
                 values: {
                     ...defaultState.values,
                     ...message.values
-                }
+                },
+                messageQueue: message.messageQueue
             }
         } else {
             this.state = defaultState

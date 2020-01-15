@@ -24,6 +24,7 @@ export interface VsCode<Values, Commands> {
 export interface AwsComponentState<Values> {
     values: Values
     statusFields: StatusFields<Values>
+    messageQueue?: BackendToAwsComponentMessage<Values>[]
 }
 
 /**
@@ -81,6 +82,7 @@ export interface VsCodeRetainedState<Values> {
     inactiveFields?: Array<keyof Values>
     loadingFields?: Array<keyof Values>
     hiddenFields?: Array<keyof Values>
+    messageQueue?: BackendToAwsComponentMessage<Values>[]
 }
 
 /**
