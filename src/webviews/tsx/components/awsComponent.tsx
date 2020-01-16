@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React = require('react')
+import * as React from 'react'
 import {
     AwsComponentProps,
     AwsComponentState,
@@ -196,7 +196,7 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * This means that VS Code pushed the event into the JS Event Queue, which is dumped when the window re-loses focus.
      * @param incomingMessage Incoming message from backend
      */
-    protected handleIncomingMessage(incomingMessage: BackendToAwsComponentMessage<Values>): void {
+    private handleIncomingMessage(incomingMessage: BackendToAwsComponentMessage<Values>): void {
         // setState call to add message to queue
         this.setState(
             (state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {

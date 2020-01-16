@@ -19,7 +19,7 @@ import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './ts
  * @param webviewJs: JS file representing entrypoint into webview. Outputted by the frontend webpack (via `webpack.webview.config.js`)
  * @param context: VS Code extension context
  * @param initialState: Initial state to message into the webview on initial load (does not message in when restoring webview)
- * @param persistSessions: (OPTIONAL) Persists the webview after restarting IDE.
+ * @param persistSessions: (OPTIONAL) Persists the webview after restarting IDE. TODO: Implement this
  * @param persistWithoutFocus: (OPTIONAL) Persists webview after it loses focus without having to reload from scratch.
  * @param onDidReceiveMessageFunction: Function triggered when webview sends a request to the backend. Includes the message, a function to respond to the webview, and a function to destroy the webview.
  * @param onDidDisposeFunction: (OPTIONAL) Function triggered after the webview has been destroyed.
@@ -36,7 +36,7 @@ export interface reactWebviewParams<Values, Commands> {
         request: AwsComponentToBackendMessage<Values, Commands>,
         postMessageFn: (response: BackendToAwsComponentMessage<Values>) => Thenable<boolean>,
         destroyWebviewFn: () => any
-    ): any
+    ): void
     onDidDisposeFunction?(): void
 }
 
@@ -102,7 +102,7 @@ export async function createReactWebview<Values, Commands>(params: reactWebviewP
     </body>
 </html>`
 
-    // message in initial state since we don't have access to the ReactDOM call at this level.
+    // message in initial state since we don't have access to the ReactDOM call at this level (since we webpack separately).
     // TODO: Is there a better way to do this?
     if (params.initialState) {
         view.webview.postMessage(params.initialState)

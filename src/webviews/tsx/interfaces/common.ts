@@ -12,7 +12,7 @@
 export interface VsCode<Values, Commands> {
     postMessage(output: AwsComponentToBackendMessage<Values, Commands>): void
     setState(state: VsCodeRetainedState<Values>): void
-    getState(): VsCodeRetainedState<Values>
+    getState(): VsCodeRetainedState<Values> | undefined
 }
 
 /**
