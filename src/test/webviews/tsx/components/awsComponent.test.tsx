@@ -6,7 +6,7 @@
 import * as assert from 'assert'
 import * as React from 'react'
 
-import { AwsComponent } from '../../../../webviews/tsx/components/awsComponent'
+import { AwsComponent, createStatusFields } from '../../../../webviews/tsx/components/awsComponent'
 import {
     AwsComponentState,
     AwsComponentToBackendMessage,
@@ -57,7 +57,7 @@ class TestAwsComponent extends AwsComponent<TestVals, TestCommands> {
 // TODO: How do we mount components so we don't have to worry about setState failing?
 // TODO: How do we test the incoming message listener?
 // TODO: Add Enzyme so we can test render functions. We will need this for testing individual AwsComponents
-describe('AwsComponent', async () => {
+describe('AwsComponent', () => {
     let vsCodeState: VsCodeRetainedState<TestVals> | undefined
     let vsCodePostedMessage: AwsComponentToBackendMessage<TestVals, TestCommands> | undefined
     let testComponent: TestAwsComponent
@@ -107,146 +107,160 @@ describe('AwsComponent', async () => {
         vsCodePostedMessage = output
     }
 
-    beforeEach(() => {
-        vsCodeState = undefined
-        vsCodePostedMessage = undefined
+    describe('AwsComponent abstract class functions', () => {
+        beforeEach(() => {
+            vsCodeState = undefined
+            vsCodePostedMessage = undefined
 
-        testComponent = new TestAwsComponent({
-            defaultState,
-            vscode: testVsCode
+            testComponent = new TestAwsComponent({
+                defaultState,
+                vscode: testVsCode
+            })
         })
-    })
 
-    it('loads a default state provided by component props', () => {
-        assert.deepStrictEqual(testComponent.state, defaultState)
-    })
-
-    it('loads a default state provided by the VS Code getState function', () => {
-        vsCodeState = {
-            values: altTestVals
-        }
-        testComponent = new TestAwsComponent({
-            defaultState,
-            vscode: testVsCode
+        it('loads a default state provided by component props', () => {
+            assert.deepStrictEqual(testComponent.state, defaultState)
         })
-        assert.deepStrictEqual(testComponent.state.values, altTestVals)
-        assert.deepStrictEqual(testComponent.state.statusFields, defaultState.statusFields)
-    })
 
-    it('can set a new state, which is reflected by React and VS Code', () => {
-        const newState: AwsComponentState<TestVals> = {
-            values: altTestVals,
-            statusFields: testStatusFields
-        }
-        assert.deepStrictEqual(testComponent.state, defaultState, 'initial state does not match')
-        testComponent.setState(
-            () => {
-                return newState
-            },
-            () => {
-                assert.deepStrictEqual(testComponent.state, newState, 'react state does not match')
-                assert.deepStrictEqual(
-                    testComponent.props.vscode.getState(),
-                    {
-                        values: altTestVals,
-                        inactiveFields: testInactiveFields,
-                        invalidFields: testInvalidFields,
-                        hiddenFields: testHiddenFields,
-                        loadingFields: testLoadingFields
-                    },
-                    'vscode.getState does not match'
-                )
+        it('loads a default state provided by the VS Code getState function', () => {
+            vsCodeState = {
+                values: altTestVals
             }
-        )
-    })
+            testComponent = new TestAwsComponent({
+                defaultState,
+                vscode: testVsCode
+            })
+            assert.deepStrictEqual(testComponent.state.values, altTestVals)
+            assert.deepStrictEqual(testComponent.state.statusFields, defaultState.statusFields)
+        })
 
-    it('can send messages to the backend in the form of an AwsComponentToBackendMessage ', () => {
-        testComponent.postMessageToVsCode('command1')
-        assert.deepStrictEqual(vsCodePostedMessage, {
-            values: testComponent.state.values,
-            command: 'command1'
+        it('can set a new state, which is reflected by React and VS Code', () => {
+            const newState: AwsComponentState<TestVals> = {
+                values: altTestVals,
+                statusFields: testStatusFields
+            }
+            assert.deepStrictEqual(testComponent.state, defaultState, 'initial state does not match')
+            testComponent.setState(
+                () => {
+                    return newState
+                },
+                () => {
+                    assert.deepStrictEqual(testComponent.state, newState, 'react state does not match')
+                    assert.deepStrictEqual(
+                        testComponent.props.vscode.getState(),
+                        {
+                            values: altTestVals,
+                            inactiveFields: testInactiveFields,
+                            invalidFields: testInvalidFields,
+                            hiddenFields: testHiddenFields,
+                            loadingFields: testLoadingFields
+                        },
+                        'vscode.getState does not match'
+                    )
+                }
+            )
+        })
+
+        it('can send messages to the backend in the form of an AwsComponentToBackendMessage ', () => {
+            testComponent.postMessageToVsCode('command1')
+            assert.deepStrictEqual(vsCodePostedMessage, {
+                values: testComponent.state.values,
+                command: 'command1'
+            })
+        })
+
+        it('can set a single str value in the state', () => {
+            const newStr = "i'm different"
+            testComponent.setSingleValueInState('testStr', newStr, () => {
+                assert.strictEqual(testComponent.state.values.testStr, newStr)
+            })
+        })
+
+        it('can set a single number value in the state', () => {
+            const newNum = 27
+            testComponent.setSingleValueInState('testNum', newNum, () => {
+                assert.strictEqual(testComponent.state.values.testNum, newNum)
+            })
+        })
+
+        it('can set a single boolean value in the state', () => {
+            const newBool = true
+            testComponent.setSingleValueInState('testBool', newBool, () => {
+                assert.strictEqual(testComponent.state.values.testBool, newBool)
+            })
+        })
+
+        it('can update an array value in the state', () => {
+            const newStr = 'yup'
+            const newArr = testComponent.state.values.testArr
+            newArr.push(newStr)
+            testComponent.setSingleValueInState('testArr', newArr, () => {
+                assert.strictEqual(testComponent.state.values.testArr, newArr)
+            })
+        })
+
+        it('returns true if a field is in a set', () => {
+            assert.ok(testComponent.checkFieldInSet('hiddenFields', 'testStr'))
+        })
+
+        it('returns false if a field is in a set', () => {
+            assert.ok(!testComponent.checkFieldInSet('inactiveFields', 'testStr'))
+        })
+
+        it('can add a field to a set', () => {
+            assert.strictEqual(testComponent.state.statusFields.inactiveFields.size, 0)
+            testComponent.addFieldToSet('inactiveFields', 'testStr')
+            assert.strictEqual(testComponent.state.statusFields.inactiveFields.size, 1)
+            assert.ok(testComponent.state.statusFields.inactiveFields.has('testStr'))
+        })
+
+        it('can remove a field from a set', () => {
+            assert.strictEqual(testComponent.state.statusFields.hiddenFields.size, 3)
+            testComponent.removeFieldFromSet('hiddenFields', 'testStr')
+            assert.strictEqual(testComponent.state.statusFields.hiddenFields.size, 2)
+            assert.ok(!testComponent.state.statusFields.hiddenFields.has('testStr'))
+        })
+
+        it('creates usable state interactors', () => {
+            const stateInteractors = testComponent.createStateInteractors()
+
+            // stateInteractors.getStatusFromSet === AwsComponent.checkFieldInSet
+            assert.ok(stateInteractors.getStatusFromSet('inactiveFields', 'testStr'))
+
+            // stateInteractors.postMessageToVsCode === AwsComponent.postMessageToVsCode
+            stateInteractors.postMessageToVsCode('command1')
+            assert.deepStrictEqual(vsCodePostedMessage, {
+                values: testComponent.state.values,
+                command: 'command1'
+            })
+
+            // stateInteractors.removeStatusFromSet === AwsComponent.removeFieldFromSet
+            stateInteractors.removeStatusFromSet('hiddenFields', 'testStr')
+            assert.strictEqual(testComponent.state.statusFields.hiddenFields.size, 2)
+            assert.ok(!testComponent.state.statusFields.hiddenFields.has('testStr'))
+
+            // stateInteractors.setSingleState === AwsComponent.setSingleValueInState
+            const newStr = 'hello there!'
+            stateInteractors.setSingleState('testStr', newStr, () => {
+                assert.strictEqual(testComponent.state.values.testStr, newStr)
+            })
+
+            // stateInteractors.setStatusInSet === AwsComponent.addFieldToSet
+            stateInteractors.setStatusInSet('inactiveFields', 'testStr')
+            assert.strictEqual(testComponent.state.statusFields.inactiveFields.size, 1)
+            assert.ok(testComponent.state.statusFields.inactiveFields.has('testStr'))
         })
     })
 
-    it('can set a single str value in the state', () => {
-        const newStr = "i'm different"
-        testComponent.setSingleValueInState('testStr', newStr, () => {
-            assert.strictEqual(testComponent.state.values.testStr, newStr)
+    describe('AwsComponent non-class helper functions', () => {
+        describe('createStatusFields', () => {
+            it('creates empty status fields', () => {
+                const fields = createStatusFields<TestVals>()
+                assert.strictEqual(fields.invalidFields.size, 0)
+                assert.strictEqual(fields.inactiveFields.size, 0)
+                assert.strictEqual(fields.loadingFields.size, 0)
+                assert.strictEqual(fields.hiddenFields.size, 0)
+            })
         })
-    })
-
-    it('can set a single number value in the state', () => {
-        const newNum = 27
-        testComponent.setSingleValueInState('testNum', newNum, () => {
-            assert.strictEqual(testComponent.state.values.testNum, newNum)
-        })
-    })
-
-    it('can set a single boolean value in the state', () => {
-        const newBool = true
-        testComponent.setSingleValueInState('testBool', newBool, () => {
-            assert.strictEqual(testComponent.state.values.testBool, newBool)
-        })
-    })
-
-    it('can update an array value in the state', () => {
-        const newStr = 'yup'
-        const newArr = testComponent.state.values.testArr
-        newArr.push(newStr)
-        testComponent.setSingleValueInState('testArr', newArr, () => {
-            assert.strictEqual(testComponent.state.values.testArr, newArr)
-        })
-    })
-
-    it('returns true if a field is in a set', () => {
-        assert.ok(testComponent.checkFieldInSet('hiddenFields', 'testStr'))
-    })
-
-    it('returns false if a field is in a set', () => {
-        assert.ok(!testComponent.checkFieldInSet('inactiveFields', 'testStr'))
-    })
-
-    it('can add a field to a set', () => {
-        assert.strictEqual(testComponent.state.statusFields.inactiveFields.size, 0)
-        testComponent.addFieldToSet('inactiveFields', 'testStr')
-        assert.strictEqual(testComponent.state.statusFields.inactiveFields.size, 1)
-        assert.ok(testComponent.state.statusFields.inactiveFields.has('testStr'))
-    })
-
-    it('can remove a field from a set', () => {
-        assert.strictEqual(testComponent.state.statusFields.hiddenFields.size, 3)
-        testComponent.removeFieldFromSet('hiddenFields', 'testStr')
-        assert.strictEqual(testComponent.state.statusFields.hiddenFields.size, 2)
-        assert.ok(!testComponent.state.statusFields.hiddenFields.has('testStr'))
-    })
-
-    it('creates usable state interactors', () => {
-        const stateInteractors = testComponent.createStateInteractors()
-
-        // stateInteractors.getStatusFromSet === AwsComponent.checkFieldInSet
-        assert.ok(stateInteractors.getStatusFromSet('inactiveFields', 'testStr'))
-
-        // stateInteractors.postMessageToVsCode === AwsComponent.postMessageToVsCode
-        stateInteractors.postMessageToVsCode('command1')
-        assert.deepStrictEqual(vsCodePostedMessage, {
-            values: testComponent.state.values,
-            command: 'command1'
-        })
-
-        // stateInteractors.removeStatusFromSet === AwsComponent.removeFieldFromSet
-        stateInteractors.removeStatusFromSet('hiddenFields', 'testStr')
-        assert.strictEqual(testComponent.state.statusFields.hiddenFields.size, 2)
-        assert.ok(!testComponent.state.statusFields.hiddenFields.has('testStr'))
-
-        // stateInteractors.setSingleState === AwsComponent.setSingleValueInState
-        const newStr = 'hello there!'
-        stateInteractors.setSingleState('testStr', newStr, () => {
-            assert.strictEqual(testComponent.state.values.testStr, newStr)
-        })
-
-        // stateInteractors.setStatusInSet === AwsComponent.addFieldToSet
-        stateInteractors.setStatusInSet('inactiveFields', 'testStr')
-        assert.strictEqual(testComponent.state.statusFields.inactiveFields.size, 1)
-        assert.ok(testComponent.state.statusFields.inactiveFields.has('testStr'))
     })
 })
