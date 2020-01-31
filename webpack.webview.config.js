@@ -4,8 +4,10 @@ module.exports = {
     mode: 'production',
 
     entry: {
-        invokeRemote: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'invokeRemote.tsx'),
-        createSamApp: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'createSamApp.tsx')
+        // invokeRemote: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'invokeRemote.tsx'),
+        invokeRemote: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'reducerInvoker.tsx'),
+        // createSamApp: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'createSamApp.tsx')
+        createSamApp: path.resolve(__dirname, 'src', 'webviews', 'tsx', 'reducerCreateSamApp.tsx')
     },
     output: {
         path: path.resolve(__dirname, 'compiledWebviews'),
