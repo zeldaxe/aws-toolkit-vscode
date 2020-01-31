@@ -60,22 +60,18 @@ export function LambdaTemplateInput<Values, Commands>(props: LambdaTemplateInput
 
 function onSelectTemplate<Values, Commands>(props: LambdaTemplateInputProps<Values, Commands>) {
     props.dispatch({
+        type: 'updateState',
+        message: {
+            inactiveFields: {
+                add: [props.templateName, props.jsonName]
+            },
+            loadingFields: {
+                add: [props.jsonName]
+            }
+        }
+    })
+    props.dispatch({
         type: 'sendCommand',
         command: props.onChangeCommand
-    })
-    props.dispatch({
-        type: 'setStatus',
-        set: 'inactiveFields',
-        field: props.templateName
-    })
-    props.dispatch({
-        type: 'setStatus',
-        set: 'inactiveFields',
-        field: props.jsonName
-    })
-    props.dispatch({
-        type: 'setStatus',
-        set: 'loadingFields',
-        field: props.jsonName
     })
 }

@@ -28,11 +28,7 @@ import { AWSTreeNodeBase } from '../shared/treeview/nodes/awsTreeNodeBase'
 import { ErrorNode } from '../shared/treeview/nodes/errorNode'
 import { showErrorDetails } from '../shared/treeview/webviews/showErrorDetails'
 import { createReactWebview } from '../webviews/reactLoader'
-import {
-    AwsComponentToBackendMessage,
-    BackendToAwsComponentMessage,
-    SelectOption
-} from '../webviews/tsx/interfaces/common'
+import { AwsComponentToBackendMessage, ReactStateDiff, SelectOption } from '../webviews/tsx/interfaces/common'
 import { InvokerCommands, InvokerContext, InvokerValues } from '../webviews/tsx/interfaces/invoker'
 import { AwsExplorer } from './awsExplorer'
 import { checkExplorerForDefaultRegion } from './defaultRegion'
@@ -209,7 +205,7 @@ async function registerExperimentalCommand(
 
 async function invokeLambdaExperiment(
     output: AwsComponentToBackendMessage<InvokerValues, InvokerCommands>,
-    postMessageFn: (event: BackendToAwsComponentMessage<InvokerValues>) => Thenable<boolean>,
+    postMessageFn: (event: ReactStateDiff<InvokerValues>) => Thenable<boolean>,
     destroyWebviewFn: () => any,
     context: InvokerContext
 ) {

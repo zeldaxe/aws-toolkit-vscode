@@ -8,7 +8,7 @@ import {
     AwsComponentProps,
     AwsComponentState,
     BackendAlteredFields,
-    BackendToAwsComponentMessage,
+    ReactStateDiff,
     StatusFields,
     VsCodeRetainedState
 } from '../interfaces/common'
@@ -46,7 +46,7 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      */
     public componentDidMount(): void {
         window.addEventListener('message', event =>
-            this.handleIncomingMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
+            this.handleIncomingMessage((event.data as any) as ReactStateDiff<Values>)
         )
         // process any messages that were in the queue prior to losing focus
         this.processMessageQueue()
@@ -57,7 +57,7 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      */
     public componentWillUnmount(): void {
         window.removeEventListener('message', event =>
-            this.handleIncomingMessage((event.data as any) as BackendToAwsComponentMessage<Values>)
+            this.handleIncomingMessage((event.data as any) as ReactStateDiff<Values>)
         )
     }
 
@@ -196,7 +196,7 @@ export abstract class AwsComponent<Values, Commands> extends React.Component<
      * This means that VS Code pushed the event into the JS Event Queue, which is dumped when the window re-loses focus.
      * @param incomingMessage Incoming message from backend
      */
-    private handleIncomingMessage(incomingMessage: BackendToAwsComponentMessage<Values>): void {
+    private handleIncomingMessage(incomingMessage: ReactStateDiff<Values>): void {
         // setState call to add message to queue
         this.setState(
             (state: AwsComponentState<Values>, props: AwsComponentProps<Values, Commands>) => {

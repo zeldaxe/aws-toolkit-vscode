@@ -6,7 +6,7 @@
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { ExtensionUtilities } from '../shared/extensionUtilities'
-import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './tsx/interfaces/common'
+import { AwsComponentToBackendMessage, ReactStateDiff } from './tsx/interfaces/common'
 
 /**
  * Params for creating a React webview.
@@ -29,12 +29,12 @@ export interface reactWebviewParams<Values, Commands> {
     name: string
     webviewJs: string
     context: vscode.ExtensionContext
-    initialState?: BackendToAwsComponentMessage<Values>
+    initialState?: ReactStateDiff<Values>
     persistSessions?: boolean
     persistWithoutFocus?: boolean
     onDidReceiveMessageFunction(
         request: AwsComponentToBackendMessage<Values, Commands>,
-        postMessageFn: (response: BackendToAwsComponentMessage<Values>) => Thenable<boolean>,
+        postMessageFn: (response: ReactStateDiff<Values>) => Thenable<boolean>,
         destroyWebviewFn: () => any
     ): void
     onDidDisposeFunction?(): void

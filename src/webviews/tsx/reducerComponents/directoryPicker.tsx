@@ -34,9 +34,12 @@ export function DirectoryPicker<Values, Commands>(props: DirectoryPickerProps<Va
 
 function askBackendForDirectory<Values, Commands>(props: DirectoryPickerProps<Values, Commands>) {
     props.dispatch({
-        type: 'setStatus',
-        set: 'loadingFields',
-        field: props.name
+        type: 'updateState',
+        message: {
+            loadingFields: {
+                add: [props.name]
+            }
+        }
     })
     props.dispatch({
         type: 'sendCommand',

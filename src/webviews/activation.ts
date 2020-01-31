@@ -17,7 +17,7 @@ import {
 } from '../shared/wizards/multiStepWizard'
 import { createReactWebview } from '../webviews/reactLoader'
 import { CreateSamAppCommands, CreateSamAppValues } from '../webviews/tsx/interfaces/createSamApp'
-import { AwsComponentToBackendMessage, BackendToAwsComponentMessage } from './tsx/interfaces/common'
+import { AwsComponentToBackendMessage, ReactStateDiff } from './tsx/interfaces/common'
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     registerCommand({
@@ -38,7 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 async function createSamAppExperiment(
     output: AwsComponentToBackendMessage<CreateSamAppValues, CreateSamAppCommands>,
-    postMessageFn: (event: BackendToAwsComponentMessage<CreateSamAppValues>) => Thenable<boolean>,
+    postMessageFn: (event: ReactStateDiff<CreateSamAppValues>) => Thenable<boolean>,
     destroyWebviewFn: () => any
 ) {
     switch (output.command) {

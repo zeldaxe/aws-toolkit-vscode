@@ -5,7 +5,7 @@
 
 import * as React from 'react'
 import { PrimitiveProps } from '../../interfaces/common'
-import { GenericActions, setState } from '../awsReducerFunctions'
+import { createPartialValues, GenericActions } from '../awsReducerFunctions'
 import { generateClassString } from './common'
 
 export interface InputProps<Values, Commands> extends PrimitiveProps {
@@ -17,18 +17,6 @@ export interface InputProps<Values, Commands> extends PrimitiveProps {
 }
 
 export function Input<Values, Commands>(props: InputProps<Values, Commands>) {
-    const firstRun = React.useRef(true)
-
-    React.useEffect(() => {
-        if (!firstRun.current && props.onChangeAction) {
-            props.onChangeAction()
-        }
-    }, [props.value])
-
-    React.useEffect(() => {
-        firstRun.current = false
-    }, [])
-
     return (
         <input
             name={props.name.toString()}
@@ -45,5 +33,13 @@ function updateParentStateAndCallback<Values, Commands>(
     props: InputProps<Values, Commands>
 ) {
     const target = event.target
-    setState(props.dispatch, props.name, target.value)
+    props.dispatch({
+        type: 'updateState',
+        message: {
+            values: createPartialValues(props.name, target.value)
+        }
+    })
+    if (props.onChangeAction) {
+        props.onChangeAction()
+    }
 }

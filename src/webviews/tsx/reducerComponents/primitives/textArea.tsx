@@ -5,7 +5,7 @@
 
 import * as React from 'react'
 import { PrimitiveProps } from '../../interfaces/common'
-import { GenericActions, setState } from '../../reducerComponents/awsReducerFunctions'
+import { createPartialValues, GenericActions } from '../../reducerComponents/awsReducerFunctions'
 import { generateClassString } from './common'
 
 export interface TextAreaProps<Values, Commands> extends PrimitiveProps {
@@ -20,18 +20,6 @@ export interface TextAreaProps<Values, Commands> extends PrimitiveProps {
 }
 
 export function TextArea<Values, Commands>(props: TextAreaProps<Values, Commands>) {
-    const firstRun = React.useRef(true)
-
-    React.useEffect(() => {
-        if (!firstRun.current && props.onChangeAction) {
-            props.onChangeAction()
-        }
-    }, [props.value])
-
-    React.useEffect(() => {
-        firstRun.current = false
-    }, [])
-
     return (
         <textarea
             name={props.name.toString()}
@@ -51,7 +39,15 @@ function updateParentState<Values, Commands>(
     props: TextAreaProps<Values, Commands>
 ) {
     const target = event.target
-    setState(props.dispatch, props.name, target.value)
+    props.dispatch({
+        type: 'updateState',
+        message: {
+            values: createPartialValues(props.name, target.value)
+        }
+    })
+    if (props.onChangeAction) {
+        props.onChangeAction()
+    }
 }
 
 function onBlurAction<Values, Commands>(

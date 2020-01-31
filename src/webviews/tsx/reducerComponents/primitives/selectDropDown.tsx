@@ -5,7 +5,7 @@
 
 import * as React from 'react'
 import { PrimitiveProps, SelectOption } from '../../interfaces/common'
-import { GenericActions, setState } from '../awsReducerFunctions'
+import { createPartialValues, GenericActions } from '../awsReducerFunctions'
 import { generateClassString } from './common'
 
 export interface SelectDropDownProps<Values, Commands> extends PrimitiveProps {
@@ -20,18 +20,6 @@ export interface SelectDropDownProps<Values, Commands> extends PrimitiveProps {
 export const DEFAULT_PLACEHOLDER = 'aws-toolkit-vscode-react-DEFAULTPLACEHOLDER'
 
 export function SelectDropDown<Values, Commands>(props: SelectDropDownProps<Values, Commands>) {
-    const firstRun = React.useRef(true)
-
-    React.useEffect(() => {
-        if (!firstRun.current && props.onSelectAction) {
-            props.onSelectAction()
-        }
-    }, [props.value])
-
-    React.useEffect(() => {
-        firstRun.current = false
-    }, [])
-
     const options: JSX.Element[] = []
 
     if (props.placeholder) {
@@ -69,6 +57,14 @@ function onSelect<Values, Commands>(
     const target = event.target
     // TODO: React won't let me disable the placeholder and have it initially selected. If you know how to do this, we can remove this line!
     if (target.value !== DEFAULT_PLACEHOLDER) {
-        setState(props.dispatch, props.name, target.value)
+        props.dispatch({
+            type: 'updateState',
+            message: {
+                values: createPartialValues(props.name, target.value)
+            }
+        })
+        if (props.onSelectAction) {
+            props.onSelectAction()
+        }
     }
 }

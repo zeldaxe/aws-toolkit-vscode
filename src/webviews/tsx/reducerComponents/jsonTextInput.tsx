@@ -49,15 +49,21 @@ function validateJsonOnBlur<Values, Commands>(
     try {
         JSON.parse(target.value)
         props.dispatch({
-            type: 'removeStatus',
-            set: 'invalidFields',
-            field: props.name
+            type: 'updateState',
+            message: {
+                invalidFields: {
+                    remove: [props.name]
+                }
+            }
         })
     } catch {
         props.dispatch({
-            type: 'setStatus',
-            set: 'invalidFields',
-            field: props.name
+            type: 'updateState',
+            message: {
+                invalidFields: {
+                    add: [props.name]
+                }
+            }
         })
     }
 }

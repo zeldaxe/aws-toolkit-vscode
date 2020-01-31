@@ -24,7 +24,7 @@ export interface VsCode<Values, Commands> {
 export interface AwsComponentState<Values> {
     values: Values
     statusFields: StatusFields<Values>
-    messageQueue?: BackendToAwsComponentMessage<Values>[]
+    messageQueue?: ReactStateDiff<Values>[]
 }
 
 /**
@@ -55,8 +55,8 @@ export interface AwsComponentToBackendMessage<Values, Commands> {
  * `values` is merged with the existing frontend state's values, with the incoming values taking precedence.
  * Only message in values that should be overridden.
  */
-export interface BackendToAwsComponentMessage<Values> {
-    values: Partial<Values>
+export interface ReactStateDiff<Values> {
+    values?: Partial<Values>
     loadingFields?: BackendAlteredFields<Values>
     invalidFields?: BackendAlteredFields<Values>
     inactiveFields?: BackendAlteredFields<Values>
@@ -82,7 +82,7 @@ export interface VsCodeRetainedState<Values> {
     inactiveFields?: Array<keyof Values>
     loadingFields?: Array<keyof Values>
     hiddenFields?: Array<keyof Values>
-    messageQueue?: BackendToAwsComponentMessage<Values>[]
+    messageQueue?: ReactStateDiff<Values>[]
 }
 
 /**
