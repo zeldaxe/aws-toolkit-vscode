@@ -60,6 +60,17 @@ export const makeBuildDir = async (): Promise<string> => {
     return pathutil.normalize(buildDir)
 }
 
+/**
+ * Decides if the config needs to use the "retry" logic.
+ */
+export function needsRetry(config: SamLaunchRequestArgs): boolean {
+    // TODO: only needed for node.js, why?
+    // - "Cannot connect to runtime; make sure that runtime is in 'legacy' debug mode."
+    // - "Cannot connect to runtime process (reason: This socket has been ended by the other party)."
+    // - Revisit after VSCode switches to new debugger: https://github.com/microsoft/vscode-js-debug
+    return !config.noDebug && config.type === 'node'
+}
+
 export function getRelativeFunctionHandler(params: {
     handlerName: string
     runtime: string
@@ -217,7 +228,7 @@ export async function invokeLambdaFunction(
     config.onWillAttachDebugger = undefined
     config.samLocalInvokeCommand = undefined
 
-    if (!config.noDebug) {
+    if (needsRetry(config)) {
         const attachResults = await attachDebugger({
             debugConfig: config,
             maxRetries,

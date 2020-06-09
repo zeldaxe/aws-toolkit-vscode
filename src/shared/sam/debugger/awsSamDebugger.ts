@@ -37,7 +37,7 @@ import {
     AwsSamDebugConfigurationValidator,
     DefaultAwsSamDebugConfigurationValidator,
 } from './awsSamDebugConfigurationValidator'
-import { makeConfig } from '../localLambdaRunner'
+import { makeConfig, needsRetry } from '../localLambdaRunner'
 import { SamLocalInvokeCommand } from '../cli/samCliLocalInvoke'
 
 const localize = nls.loadMessageBundle()
@@ -193,9 +193,11 @@ export class SamDebugConfigProvider implements vscode.DebugConfigurationProvider
         if (!resolvedConfig) {
             return undefined
         }
-        await this.invokeConfig(resolvedConfig)
-        // TODO: return config here, and remove use of `startDebugging()` in `localLambdaRunner.ts`.
-        return undefined
+        const invokedConfig = await this.invokeConfig(resolvedConfig)
+        if (needsRetry(invokedConfig)) {
+            return undefined
+        }
+        return invokedConfig
     }
 
     /**
