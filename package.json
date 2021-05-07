@@ -1057,6 +1057,36 @@
                     "command": "aws.ssmDocument.deleteDocument",
                     "group": "3@2",
                     "when": "view == aws.explorer && viewItem == awsDocumentItemNodeWriteable"
+                },
+                {
+                    "command": "aws.apprunner.startDeployment",
+                    "group": "0@1",
+                    "when": "view == aws.explorer && viewItem =~ /awsAppRunnerServiceNode.[RUNNING|PAUSED]/"
+                },
+                {
+                    "command": "aws.apprunner.createService",
+                    "group": "0@2",
+                    "when": "view == aws.explorer && viewItem == awsAppRunnerNode"
+                },
+                {
+                    "command": "aws.apprunner.pauseService",
+                    "group": "0@2",
+                    "when": "view == aws.explorer && viewItem == awsAppRunnerServiceNode.RUNNING"
+                },
+                {
+                    "command": "aws.apprunner.resumeService",
+                    "group": "0@1",
+                    "when": "view == aws.explorer && viewItem == awsAppRunnerServiceNode.PAUSED"
+                },
+                {
+                    "command": "aws.apprunner.copyServiceUrl",
+                    "group": "1@1",
+                    "when": "view == aws.explorer && viewItem == awsAppRunnerServiceNode.RUNNING"
+                },
+                {
+                    "command": "aws.apprunner.deleteService",
+                    "group": "3@1",
+                    "when": "view == aws.explorer && viewItem =~ /awsAppRunnerServiceNode/"
                 }
             ]
         },
@@ -1407,6 +1437,36 @@
             {
                 "command": "aws.toggleSamCodeLenses",
                 "title": "%AWS.command.toggleSamCodeLenses%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.apprunner.createService",
+                "title": "%AWS.command.apprunner.createService%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.apprunner.pauseService",
+                "title": "%AWS.command.apprunner.pauseService%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.apprunner.resumeService",
+                "title": "%AWS.command.apprunner.resumeService%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.apprunner.copyServiceUrl",
+                "title": "%AWS.command.apprunner.copyServiceUrl%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.apprunner.deleteService",
+                "title": "%AWS.generic.promptDelete%",
+                "category": "AWS"
+            },
+            {
+                "command": "aws.apprunner.startDeployment",
+                "title": "%AWS.command.apprunner.startDeployment%",
                 "category": "AWS"
             }
         ],

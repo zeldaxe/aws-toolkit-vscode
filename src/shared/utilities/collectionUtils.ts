@@ -177,7 +177,7 @@ export interface getPaginatedAwsCallIterParams<TRequest, TResponse> {
  */
 export async function* getPaginatedAwsCallIter<TRequest, TResponse>(
     params: getPaginatedAwsCallIterParams<TRequest, TResponse>
-): AsyncIterator<TResponse> {
+) {
     let nextToken: string | undefined = undefined
 
     while (true) {
@@ -185,14 +185,14 @@ export async function* getPaginatedAwsCallIter<TRequest, TResponse>(
             ...params.request,
             [params.nextTokenNames.request]: nextToken,
         })
+        yield response
+
         if (response[params.nextTokenNames.response]) {
             nextToken = (response[params.nextTokenNames.response] as any) as string
         } else {
             // done; returns last response with { done: true }
-            return response
+            break
         }
-
-        yield response
     }
 }
 

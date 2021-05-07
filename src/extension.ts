@@ -62,6 +62,7 @@ import { ExtContext } from './shared/extensions'
 import { activate as activateApiGateway } from './apigateway/activation'
 import { activate as activateStepFunctions } from './stepFunctions/activation'
 import { activate as activateSsmDocument } from './ssmDocument/activation'
+import { activate as activateAppRunner } from './apprunner/activation'
 import { CredentialsStore } from './credentials/credentialsStore'
 import { getSamCliContext } from './shared/sam/cli/samCliContext'
 import * as extWindow from './shared/vscode/window'
@@ -223,6 +224,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
         await activateEcr(context)
 
+        await activateAppRunner(context)
+
         // Features which aren't currently functional in Cloud9
         if (!isCloud9()) {
             await activateCloudWatchLogs(context, toolkitSettings)
@@ -298,6 +301,9 @@ function initializeIconPaths(context: vscode.ExtensionContext) {
 
     ext.iconPaths.dark.cloudWatchLogGroup = context.asAbsolutePath('resources/dark/log-group.svg')
     ext.iconPaths.light.cloudWatchLogGroup = context.asAbsolutePath('resources/light/log-group.svg')
+
+    ext.iconPaths.dark.apprunner = context.asAbsolutePath('resources/dark/apprunner.svg')
+    ext.iconPaths.light.apprunner = context.asAbsolutePath('resources/light/apprunner.svg')
 
     ext.iconPaths.dark.createBucket = context.asAbsolutePath('resources/dark/s3/create-bucket.svg')
     ext.iconPaths.light.createBucket = context.asAbsolutePath('resources/light/s3/create-bucket.svg')

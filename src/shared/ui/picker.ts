@@ -19,6 +19,8 @@ export interface AdditionalQuickPickOptions {
     value?: string
     step?: number
     totalSteps?: number
+    /** User can type their own entry */
+    customUserInputLabel?: string
 }
 
 /**
@@ -45,10 +47,28 @@ export function createQuickPick<T extends vscode.QuickPickItem>({
 }): vscode.QuickPick<T> {
     const picker = vscode.window.createQuickPick<T>()
 
+    // Updates the picker items
+    function update(value?: string) {
+        if (value) {
+            // @ts-ignore
+            picker.items = [
+                {
+                    label: options!.customUserInputLabel,
+                    description: value,
+                    alwaysShow: true,
+                },
+                ...(items ?? []),
+            ]
+        } else {
+            picker.items = items ?? []
+        }
+    }
+
     if (options) {
         picker.title = options.title
         picker.placeholder = options.placeHolder
         picker.value = options.value || ''
+
         if (options.matchOnDescription !== undefined) {
             picker.matchOnDescription = options.matchOnDescription
         }
@@ -61,12 +81,14 @@ export function createQuickPick<T extends vscode.QuickPickItem>({
         picker.step = options.step
         picker.totalSteps = options.totalSteps
 
+        if (options.customUserInputLabel) {
+            picker.onDidChangeValue(update)
+        }
+
         // TODO : Apply more options as they are needed in the future, and add corresponding tests
     }
 
-    if (items) {
-        picker.items = items
-    }
+    update()
 
     if (buttons) {
         picker.buttons = buttons

@@ -70,7 +70,7 @@ describe('defaultEcsClient', async function () {
     describe('listServices', async function () {
         it('lists services from a single page', async function () {
             const targetArr = ['service1', 'service2', 'service3']
-            testClient.listServicesResponses = [
+            testClient.ListServicesResponses = [
                 {
                     serviceArns: targetArr,
                 },
@@ -87,7 +87,7 @@ describe('defaultEcsClient', async function () {
             const targetArr1 = ['service1', 'service2', 'service3']
             const targetArr2 = ['service4', 'service5', 'service6']
             const targetArr3 = ['service7', 'service8', 'service9']
-            testClient.listServicesResponses = [
+            testClient.ListServicesResponses = [
                 {
                     serviceArns: targetArr1,
                     nextToken: 'theres more where that came from',
@@ -109,7 +109,7 @@ describe('defaultEcsClient', async function () {
         })
 
         it('handles errors', async function () {
-            testClient.listServicesResponses = new Error() as AWSError
+            testClient.ListServicesResponses = new Error() as AWSError
             await assert.rejects(async () => {
                 const iterator = testClient.listServices('ourcluster')
                 const arr = []
@@ -177,7 +177,7 @@ describe('defaultEcsClient', async function () {
 class TestEcsClient extends DefaultEcsClient {
     public listClustersResponses: ECS.ListClustersResponse[] | AWSError = [{}]
 
-    public listServicesResponses: ECS.ListServicesResponse[] | AWSError = [{}]
+    public ListServicesResponses: ECS.ListServicesResponse[] | AWSError = [{}]
 
     public listTaskDefinitionFamiliesResponses: ECS.ListTaskDefinitionFamiliesResponse[] | AWSError = [{}]
 
@@ -202,7 +202,7 @@ class TestEcsClient extends DefaultEcsClient {
 
     protected async invokeListServices(request: ECS.ListServicesRequest): Promise<ECS.ListServicesResponse> {
         const responseDatum = this.getResponseDatum<ECS.ListServicesResponse>(
-            this.listServicesResponses,
+            this.ListServicesResponses,
             request.nextToken
         )
 

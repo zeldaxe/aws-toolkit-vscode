@@ -31,6 +31,8 @@ import { DefaultS3Client } from './defaultS3Client'
 import { S3Client } from './s3Client'
 import { RegionProvider } from '../regions/regionProvider'
 import { DEFAULT_PARTITION } from '../regions/regionUtilities'
+import { AppRunnerClient } from './apprunnerClient'
+import { DefaultAppRunnerClient } from './defaultAppRunnerClient'
 
 export class DefaultToolkitClientBuilder implements ToolkitClientBuilder {
     public constructor(private readonly regionProvider: RegionProvider) {}
@@ -81,5 +83,9 @@ export class DefaultToolkitClientBuilder implements ToolkitClientBuilder {
 
     public createSsmClient(regionCode: string): SsmDocumentClient {
         return new DefaultSsmDocumentClient(regionCode)
+    }
+
+    public createAppRunnerClient(regionCode: string): AppRunnerClient {
+        return new DefaultAppRunnerClient(regionCode)
     }
 }

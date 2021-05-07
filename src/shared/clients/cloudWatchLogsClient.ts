@@ -8,7 +8,7 @@ import { CloudWatchLogs } from 'aws-sdk'
 export interface CloudWatchLogsClient {
     readonly regionCode: string
 
-    describeLogGroups(): AsyncIterableIterator<CloudWatchLogs.LogGroup>
+    describeLogGroups(request?: CloudWatchLogs.DescribeLogGroupsRequest): AsyncIterableIterator<CloudWatchLogs.LogGroup>
 
     getLogEvents(request: CloudWatchLogs.GetLogEventsRequest): Promise<CloudWatchLogs.GetLogEventsResponse>
 

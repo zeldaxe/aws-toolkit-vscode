@@ -38,6 +38,9 @@ import {
     DeleteObjectsResponse,
 } from '../../../shared/clients/s3Client'
 
+import { AppRunnerClient } from '../../../apprunner/apprunnerClient'
+import AppRunner = require('../../../apprunner/models/apprunner')
+
 interface Clients {
     apiGatewayClient: ApiGatewayClient
     cloudFormationClient: CloudFormationClient
@@ -51,6 +54,7 @@ interface Clients {
     stsClient: StsClient
     s3Client: S3Client
     ssmDocumentClient: SsmDocumentClient
+    apprunnerClient: AppRunnerClient
 }
 
 export class MockToolkitClientBuilder implements ToolkitClientBuilder {
@@ -69,6 +73,7 @@ export class MockToolkitClientBuilder implements ToolkitClientBuilder {
             stsClient: new MockStsClient({}),
             s3Client: new MockS3Client({}),
             ssmDocumentClient: new MockSsmDocumentClient(),
+            apprunnerClient: new MockAppRunnerClient(),
             ...overrideClients,
         }
     }
@@ -119,6 +124,10 @@ export class MockToolkitClientBuilder implements ToolkitClientBuilder {
 
     public createSsmClient(regionCode: string): SsmDocumentClient {
         return this.clients.ssmDocumentClient
+    }
+
+    public createAppRunnerClient(regionCode: string): AppRunnerClient {
+        return this.clients.apprunnerClient
     }
 }
 
@@ -531,5 +540,16 @@ export class MockS3Client implements S3Client {
         this.deleteObject = deleteObject
         this.deleteObjects = deleteObjects
         this.deleteBucket = deleteBucket
+    }
+}
+
+export class MockAppRunnerClient implements AppRunnerClient {
+    public constructor(public readonly regionCode: string = '') {}
+
+    public createService(request: AppRunner.CreateServiceRequest): Promise<AppRunner.CreateServiceResponse> {
+        throw Error('e')
+    }
+    public listServices(request: AppRunner.ListServicesRequest): Promise<AppRunner.ListServicesResponse> {
+        throw Error('e')
     }
 }

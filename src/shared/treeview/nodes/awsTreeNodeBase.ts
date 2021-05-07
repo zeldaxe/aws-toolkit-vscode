@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { TreeItem, TreeItemCollapsibleState } from 'vscode'
+import { TreeItem, TreeItemCollapsibleState, commands } from 'vscode'
 
 export abstract class AWSTreeNodeBase extends TreeItem {
     protected constructor(label: string, collapsibleState?: TreeItemCollapsibleState) {
@@ -12,5 +12,9 @@ export abstract class AWSTreeNodeBase extends TreeItem {
 
     public getChildren(): Thenable<AWSTreeNodeBase[]> {
         return Promise.resolve([])
+    }
+
+    public async refresh(): Promise<void> {
+        await commands.executeCommand('aws.refreshAwsExplorerNode', this)
     }
 }

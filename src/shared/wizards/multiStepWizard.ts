@@ -224,3 +224,123 @@ export async function promptUserForLocation(
 
     return pickerResponse.getUri()
 }
+
+interface WizardStepX<TState> {
+    nextState?: TState
+    nextSteps?: WizardStepFunction<TState>[]
+}
+
+interface WizardExtraState {
+    currentStep: number
+    totalSteps: number
+    /** Errors are injected into the current state if the next state failed */
+    /** This essentially allows steps to communicate to previous steps */
+    error?: Error
+}
+
+type WizardStepFunction<TState> = (state: TState) => Promise<WizardStepX<TState>>
+export type WizardState<TState> = TState & WizardExtraState
+/**
+ * A multi-step wizard controller. Wizards can be chained together by using the current state of one
+ * to intialize the new state of another.
+ */
+export class NewMultiStepWizard<TState, TResult> {
+    private previousStates: WizardState<TState>[] = []
+    private extraSteps = new Map<number, number>()
+    private steps: WizardStepFunction<WizardState<TState>>[] = []
+    private internalStep = 0
+    private state!: WizardState<TState>
+    private finalState: WizardState<TState> | undefined
+
+    public constructor(
+        private outputResult: (state: WizardState<TState>) => TResult,
+        initState?: TState | WizardState<TState>
+    ) {
+        this.setState(initState)
+    }
+
+    public setState<AltTState>(state?: AltTState) {
+        this.state = { ...state } as WizardState<TState>
+        this.state.currentStep = this.state.currentStep ?? 1
+        this.state.totalSteps = this.state.totalSteps ?? 0
+    }
+
+    public reset() {
+        // Clean up state so the wizard can be reused
+        this.state = this.previousStates[0]
+        this.previousStates = this.previousStates.slice(0, 1)
+        this.internalStep = 0
+        this.extraSteps.clear()
+    }
+
+    /** Adds a single step to the wizard. A step can also be another wizard. */
+    public addStep<AltTState, AltTResult>(
+        path: WizardStepFunction<WizardState<TState>>,
+        options?: { noPrompt: boolean }
+    ) {
+        this.steps.push(path)
+        this.state.totalSteps += 1
+    }
+
+    public getFinalState(): WizardState<TState> | undefined {
+        return this.finalState ? { ...this.finalState } : undefined
+    }
+
+    /**
+     * Runs the added steps until termination or failure
+     */
+    public async run(): Promise<TResult | undefined> {
+        this.previousStates.push({ ...this.state })
+
+        while (this.internalStep < this.steps.length) {
+            try {
+                const stepOutput = await this.steps[this.internalStep](this.state)
+
+                if (stepOutput.nextState === undefined) {
+                    if (this.internalStep === 0) {
+                        return undefined
+                    }
+
+                    if (this.extraSteps.has(this.internalStep)) {
+                        this.steps.splice(this.internalStep, this.extraSteps.get(this.internalStep))
+                        this.extraSteps.delete(this.internalStep)
+                    }
+
+                    this.state = this.previousStates.pop()!
+                    this.internalStep -= 1
+                } else {
+                    if (stepOutput.nextState.error !== undefined) {
+                        throw stepOutput.nextState.error
+                    }
+
+                    this.previousStates.push({ ...stepOutput.nextState })
+                    this.state = stepOutput.nextState
+                    this.internalStep += 1
+                    this.state.currentStep += 1
+
+                    if (stepOutput.nextSteps !== undefined && stepOutput.nextSteps.length > 0) {
+                        this.steps.splice(this.internalStep, 0, ...stepOutput.nextSteps)
+                        this.extraSteps.set(this.internalStep, stepOutput.nextSteps.length)
+                        this.state.totalSteps += stepOutput.nextSteps.length
+                    }
+                }
+            } catch (err) {
+                if (this.state.error !== undefined) {
+                    this.state.error = err
+                } else {
+                    getLogger().debug('wizard: terminated due to unhandled exception %O', err)
+                    return undefined
+                }
+            }
+        }
+
+        const result = this.getResult()
+        this.finalState = this.state
+
+        return result
+    }
+
+    private getResult(): TResult {
+        return this.outputResult(this.state)
+    }
+}

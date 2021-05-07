@@ -206,3 +206,12 @@ ${fileContents}
     ]
     await generateServiceClients(serviceClientDefinitions)
 })()
+;(async () => {
+    const serviceClientDefinitions: ServiceClientDefinition[] = [
+        {
+            serviceJsonPath: 'src/apprunner/models/service-2.json',
+            serviceName: 'AppRunner',
+        },
+    ]
+    await generateServiceClients(serviceClientDefinitions)
+})()

@@ -81,6 +81,7 @@ export interface IconPaths {
     file: string
     schema: string
     cloudWatchLogGroup: string
+    apprunner: string
     bucket: string
     createBucket: string
     // temporary icons while Cloud9 does not have codicon support
@@ -102,6 +103,7 @@ function makeIconPathsObject(): IconPaths {
         schema: '',
         statemachine: '',
         cloudWatchLogGroup: '',
+        apprunner: '',
         bucket: '',
         createBucket: '',
         plus: '',

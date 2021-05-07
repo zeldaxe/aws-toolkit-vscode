@@ -37,6 +37,7 @@ export function createInputBox({
 
     if (options) {
         inputBox.title = options.title
+        inputBox.value = options.value ?? ''
         inputBox.placeholder = options.placeHolder
         inputBox.prompt = options.prompt
         inputBox.step = options.step
