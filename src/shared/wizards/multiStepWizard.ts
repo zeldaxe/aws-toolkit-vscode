@@ -241,8 +241,7 @@ interface WizardExtraState {
 type WizardStepFunction<TState> = (state: TState) => Promise<WizardStepX<TState>>
 export type WizardState<TState> = TState & WizardExtraState
 /**
- * A multi-step wizard controller. Wizards can be chained together by using the current state of one
- * to intialize the new state of another.
+ * A multi-step wizard controller. Very fancy, very cool.
  */
 export class NewMultiStepWizard<TState, TResult> {
     private previousStates: WizardState<TState>[] = []
@@ -262,7 +261,7 @@ export class NewMultiStepWizard<TState, TResult> {
     public setState<AltTState>(state?: AltTState) {
         this.state = { ...state } as WizardState<TState>
         this.state.currentStep = this.state.currentStep ?? 1
-        this.state.totalSteps = this.state.totalSteps ?? 0
+        this.state.totalSteps = (this.steps.length ?? 0) + (this.state.totalSteps ?? 0)
     }
 
     public reset() {
@@ -273,12 +272,48 @@ export class NewMultiStepWizard<TState, TResult> {
         this.extraSteps.clear()
     }
 
+    public addStep(step: WizardStepFunction<WizardState<TState>>): void
+
+    public addStep<AltTState, AltTResult>(
+        wizard: NewMultiStepWizard<AltTState, AltTResult>,
+        nextState: (state: WizardState<AltTState>, result: AltTResult | undefined) => WizardState<TState>,
+        nextSteps: (
+            state: WizardState<AltTState>,
+            result: AltTResult | undefined
+        ) => WizardStepFunction<WizardState<TState>>[]
+    ): void
+
     /** Adds a single step to the wizard. A step can also be another wizard. */
     public addStep<AltTState, AltTResult>(
-        path: WizardStepFunction<WizardState<TState>>,
-        options?: { noPrompt: boolean }
-    ) {
-        this.steps.push(path)
+        step: WizardStepFunction<WizardState<TState>> | NewMultiStepWizard<AltTState, AltTResult>,
+        nextState?: (state: WizardState<AltTState>, result: AltTResult | undefined) => WizardState<TState>,
+        nextSteps?: (
+            state: WizardState<AltTState>,
+            result: AltTResult | undefined
+        ) => WizardStepFunction<WizardState<TState>>[]
+    ): void {
+        if (typeof step === 'function') {
+            this.steps.push(step)
+        } else if (typeof step === 'object' && step.internalStep !== undefined) {
+            this.steps.push(async state => {
+                step.setState(state)
+                step.rollback()
+                const result = await step.run()
+                const finalState = step.finalState
+                if (finalState !== undefined) {
+                    finalState.currentStep -= 1
+                    finalState.totalSteps -= 1
+                    return {
+                        nextState: nextState!(finalState, result),
+                        nextSteps: nextSteps!(finalState, result),
+                    }
+                } else {
+                    return { nextState: undefined }
+                }
+            })
+        } else {
+            throw Error('Invalid wizard step')
+        }
         this.state.totalSteps += 1
     }
 
@@ -286,11 +321,28 @@ export class NewMultiStepWizard<TState, TResult> {
         return this.finalState ? { ...this.finalState } : undefined
     }
 
+    public rollback(): void {
+        if (this.internalStep === 0) {
+            return
+        }
+
+        if (this.extraSteps.has(this.internalStep)) {
+            this.steps.splice(this.internalStep, this.extraSteps.get(this.internalStep))
+            this.extraSteps.delete(this.internalStep)
+        }
+
+        this.state = this.previousStates.pop()!
+        this.internalStep -= 1
+    }
+
     /**
      * Runs the added steps until termination or failure
      */
     public async run(): Promise<TResult | undefined> {
-        this.previousStates.push({ ...this.state })
+        if (this.previousStates.length === 0) {
+            this.previousStates.push({ ...this.state })
+        }
+        this.finalState = undefined
 
         while (this.internalStep < this.steps.length) {
             try {
@@ -301,13 +353,7 @@ export class NewMultiStepWizard<TState, TResult> {
                         return undefined
                     }
 
-                    if (this.extraSteps.has(this.internalStep)) {
-                        this.steps.splice(this.internalStep, this.extraSteps.get(this.internalStep))
-                        this.extraSteps.delete(this.internalStep)
-                    }
-
-                    this.state = this.previousStates.pop()!
-                    this.internalStep -= 1
+                    this.rollback()
                 } else {
                     if (stepOutput.nextState.error !== undefined) {
                         throw stepOutput.nextState.error

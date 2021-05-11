@@ -11,7 +11,7 @@ import { PlaceholderNode } from '../../shared/treeview/nodes/placeholderNode'
 import * as nls from 'vscode-nls'
 import { AppRunnerClient } from '../../shared/clients/apprunnerClient'
 import { getPaginatedAwsCallIter } from '../../shared/utilities/collectionUtils'
-import AppRunner = require('../models/apprunner')
+import * as AppRunner from '../models/apprunner'
 import {
     CreateAppRunnerServiceWizard,
     DefaultAppRunnerCreateServiceWizardContext,

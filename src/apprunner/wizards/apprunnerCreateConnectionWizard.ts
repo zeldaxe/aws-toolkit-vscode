@@ -15,7 +15,7 @@ import {
     WIZARD_TERMINATE,
 } from '../../shared/wizards/multiStepWizard'
 import { createQuickPick, promptUser, verifySinglePickerOutput } from '../../shared/ui/picker'
-import AppRunner = require('../models/apprunner')
+import * as AppRunner from '../models/apprunner'
 import * as nls from 'vscode-nls'
 import { createHelpButton } from '../../shared/ui/buttons'
 import * as input from '../../shared/ui/input'
@@ -36,7 +36,8 @@ interface AppRunnerCreateConnectionWizardContext {
 
 export class DefaultAppRunnerCreateConnectionWizardContext
     extends WizardContext
-    implements AppRunnerCreateConnectionWizardContext {
+    implements AppRunnerCreateConnectionWizardContext
+{
     private readonly helpButton = createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation'))
 
     private readonly totalSteps = 2
@@ -106,34 +107,37 @@ export function makeApprunnerConnectionWizard(): NewMultiStepWizard<
     AppRunner.CreateConnectionRequest
 > {
     const wizard = new NewMultiStepWizard(MapStateToRequest)
+    const wizard2 = new NewMultiStepWizard(MapStateToRequest)
+    const wizard3 = new NewMultiStepWizard(MapStateToRequest)
+
     const nameStep = async (state: WizardState<ConnectionState>) => {
         state.name = (await promptForConnectionName(state.currentStep, state.totalSteps, state.name))!
         return { nextState: state.name === undefined ? undefined : state }
     }
 
     const nameStep2 = async (state: WizardState<ConnectionState>) => {
-        const wizard2 = new NewMultiStepWizard(MapStateToRequest, state)
-        wizard2.addStep(nameStep)
-        wizard2.addStep(nameStep)
-        wizard2.addStep(nameStep)
-        wizard2.addStep(nameStep)
-        const r = await wizard2.run()
-        state = wizard2.getFinalState()!
-        if (state) {
-            state.name2 = r?.ConnectionName!
-            state.currentStep -= 1
-            state.totalSteps -= 1
-        }
+        state.name2 = (await promptForConnectionName(state.currentStep, state.totalSteps, state.name2))!
         return {
             nextState: state?.name2 === undefined ? undefined : state,
             nextSteps: state?.name2 === 'yes' ? [nameStep2] : [nameStep, nameStep],
         }
     }
 
+    const x = (s: any, r: any) => (r === undefined ? undefined : { ...s, name2: r.ConnectionName })
+    const y = (s: any, r: any) => (s?.name2 === 'yes' ? [nameStep2] : [nameStep, nameStep])
+
+    wizard2.addStep(nameStep)
+    wizard2.addStep(nameStep)
+    wizard2.addStep(nameStep)
+    wizard2.addStep(nameStep)
+    wizard3.addStep(nameStep)
+    wizard3.addStep(nameStep)
+    wizard3.addStep(nameStep)
+    wizard3.addStep(nameStep)
     wizard.addStep(nameStep)
     wizard.addStep(nameStep)
-    wizard.addStep(nameStep2)
-    wizard.addStep(nameStep2)
+    wizard.addStep(wizard2, x, y)
+    wizard.addStep(wizard3, x, y)
 
     return wizard
 }

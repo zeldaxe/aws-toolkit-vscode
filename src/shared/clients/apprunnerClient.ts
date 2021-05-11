@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import AppRunner = require('../../apprunner/models/apprunner')
+import * as AppRunner from '../../apprunner/models/apprunner'
 
 export interface AppRunnerClient {
     readonly regionCode: string

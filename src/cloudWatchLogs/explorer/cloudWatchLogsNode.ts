@@ -18,38 +18,41 @@ import { PlaceholderNode } from '../../shared/treeview/nodes/placeholderNode'
 import { makeChildrenNodes } from '../../shared/treeview/treeNodeUtilities'
 import { LogGroupNode } from './logGroupNode'
 
-export class CloudWatchLogsNode extends AWSTreeNodeBase {
-    private readonly logGroupNodes: Map<string, LogGroupNode>
+export abstract class CloudWatchLogsParentNode extends AWSTreeNodeBase {
+    protected readonly logGroupNodes: Map<string, LogGroupNode>
+    protected readonly logParentNodes: Map<string, CloudWatchLogsParentNode>
 
-    public constructor(private readonly regionCode: string) {
-        super('CloudWatch Logs', vscode.TreeItemCollapsibleState.Collapsed)
+    public constructor(
+        label: string,
+        protected readonly regionCode: string,
+        protected placeholderMessage: string = localize(
+            'AWS.explorerNode.cloudWatchLogs.nologs',
+            '[No log groups found]'
+        )
+    ) {
+        super(label, vscode.TreeItemCollapsibleState.Collapsed)
         this.logGroupNodes = new Map<string, LogGroupNode>()
+        this.logParentNodes = new Map<string, CloudWatchLogsParentNode>()
     }
+
+    protected abstract getLogGroups(client: CloudWatchLogsClient): Promise<Map<string, CloudWatchLogs.LogGroup>>
 
     public async getChildren(): Promise<AWSTreeNodeBase[]> {
         return await makeChildrenNodes({
             getChildNodes: async () => {
                 await this.updateChildren()
 
-                return [...this.logGroupNodes.values()]
+                return [...this.logParentNodes.values(), ...this.logGroupNodes.values()]
             },
-            getErrorNode: async (error: Error, logID: number) =>
-                new ErrorNode(this, error, logID),
-            getNoChildrenPlaceholderNode: async () =>
-                new PlaceholderNode(
-                    this,
-                    localize('AWS.explorerNode.cloudWatchLogs.error', 'Error loading CloudWatch Logs resources')
-                ),
+            getErrorNode: async (error: Error, logID: number) => new ErrorNode(this, error, logID),
+            getNoChildrenPlaceholderNode: async () => new PlaceholderNode(this, this.placeholderMessage),
             sort: (nodeA: LogGroupNode, nodeB: LogGroupNode) => nodeA.name.localeCompare(nodeB.name),
         })
     }
 
     public async updateChildren(): Promise<void> {
         const client: CloudWatchLogsClient = ext.toolkitClientBuilder.createCloudWatchLogsClient(this.regionCode)
-        const logGroups: Map<string, CloudWatchLogs.LogGroup> = toMap(
-            await toArrayAsync(client.describeLogGroups()),
-            configuration => configuration.logGroupName
-        )
+        const logGroups = await this.getLogGroups(client)
 
         updateInPlace(
             this.logGroupNodes,
@@ -57,5 +60,51 @@ export class CloudWatchLogsNode extends AWSTreeNodeBase {
             key => this.logGroupNodes.get(key)!.update(logGroups.get(key)!),
             key => new LogGroupNode(this, this.regionCode, logGroups.get(key)!)
         )
+    }
+}
+
+// Creates a logical grouping of nodes
+export class FolderNode extends AWSTreeNodeBase {
+    public constructor(label: string, private readonly children: AWSTreeNodeBase[] = []) {
+        super(label, vscode.TreeItemCollapsibleState.Collapsed)
+    }
+
+    public addChild(node: AWSTreeNodeBase): void {
+        this.children.push(node)
+        this.refresh()
+    }
+
+    public removeChild(node: AWSTreeNodeBase): void {
+        const index = this.children.indexOf(node)
+        if (index !== -1) {
+            this.children.splice(index, 1)
+        }
+        this.refresh()
+    }
+
+    public async getChildren(): Promise<AWSTreeNodeBase[]> {
+        return await makeChildrenNodes({
+            getChildNodes: async () => [...this.children.values()],
+            getErrorNode: async (error: Error, logID: number) => new ErrorNode(this, error, logID),
+            getNoChildrenPlaceholderNode: async () =>
+                new PlaceholderNode(this, localize('AWS.explorerNode.folder.nochildren', 'Nothing is here...')),
+            sort: (nodeA: AWSTreeNodeBase, nodeB: AWSTreeNodeBase) =>
+                (nodeA.label ?? '').localeCompare(nodeB.label ?? ''),
+        })
+    }
+}
+
+// TODO: rename this as root node?
+export class CloudWatchLogsNode extends CloudWatchLogsParentNode {
+    public constructor(regionCode: string) {
+        super(
+            'CloudWatch Logs',
+            regionCode,
+            localize('AWS.explorerNode.cloudWatchLogs.error', 'Error loading CloudWatch Logs resources')
+        )
+    }
+
+    protected async getLogGroups(client: CloudWatchLogsClient): Promise<Map<string, CloudWatchLogs.LogGroup>> {
+        return toMap(await toArrayAsync(client.describeLogGroups()), configuration => configuration.logGroupName)
     }
 }

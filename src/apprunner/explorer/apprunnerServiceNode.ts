@@ -4,21 +4,19 @@
  */
 
 import * as vscode from 'vscode'
-import { AWSTreeNodeBase } from '../../shared/treeview/nodes/awsTreeNodeBase'
 import { AppRunnerClient } from '../../shared/clients/apprunnerClient'
-import AppRunner = require('../models/apprunner')
+import * as AppRunner from '../models/apprunner'
 import { AppRunnerNode } from './apprunnerNode'
 import * as nls from 'vscode-nls'
-import { LogGroupNode } from '../../cloudWatchLogs/explorer/logGroupNode'
-import { makeChildrenNodes } from '../../shared/treeview/treeNodeUtilities'
-import { ErrorNode } from '../../shared/treeview/nodes/errorNode'
-import { PlaceholderNode } from '../../shared/treeview/nodes/placeholderNode'
 import { CloudWatchLogsClient } from '../../shared/clients/cloudWatchLogsClient'
 import { ext } from '../../shared/extensionGlobals'
-import { toArrayAsync } from '../../shared/utilities/collectionUtils'
+import { toArrayAsync, toMap } from '../../shared/utilities/collectionUtils'
+import { CloudWatchLogsParentNode } from '../../cloudWatchLogs/explorer/cloudWatchLogsNode'
+import { CloudWatchLogs } from 'aws-sdk'
 const localize = nls.loadMessageBundle()
 
 const AUTO_REFRESH_INTERVAL = 1000
+const CONTEXT_BASE = 'awsAppRunnerServiceNode'
 
 const OPERATION_STATUS: { [key: string]: string } = {
     START_DEPLOYMENT: localize('AWS.apprunner.operationStatus.deploy', 'Deploying...'),
@@ -27,9 +25,8 @@ const OPERATION_STATUS: { [key: string]: string } = {
     RESUME_SERVICE: localize('AWS.apprunner.operationStatus.resume', 'Resuming...'),
 }
 
-export class AppRunnerServiceNode extends AWSTreeNodeBase {
+export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
     private refreshTimer: NodeJS.Timeout | undefined
-    private logNodes: Map<string, LogGroupNode>
 
     constructor(
         public readonly parent: AppRunnerNode,
@@ -37,8 +34,11 @@ export class AppRunnerServiceNode extends AWSTreeNodeBase {
         private info: AppRunner.Service,
         private currentOperation: AppRunner.Operation = {}
     ) {
-        super('App Runner Service', vscode.TreeItemCollapsibleState.Collapsed)
-        this.logNodes = new Map<string, LogGroupNode>()
+        super(
+            'App Runner Service',
+            'us-east-1',
+            localize('AWS.explorerNode.apprunner.nologs', '[No App Runner logs found]')
+        )
         this.iconPath = {
             dark: vscode.Uri.file(ext.iconPaths.dark.apprunner),
             light: vscode.Uri.file(ext.iconPaths.light.apprunner),
@@ -46,24 +46,13 @@ export class AppRunnerServiceNode extends AWSTreeNodeBase {
         this.update(info)
     }
 
-    // Service node will have application + service logs as children
-    public async getChildren(): Promise<AWSTreeNodeBase[]> {
-        return await makeChildrenNodes({
-            getChildNodes: async () => {
-                // Probably not worth it to keep trying to update the service nodes
-                // await this.updateChildren()
-                if (this.logNodes.size === 0) {
-                    await this.createLogNodes(this.info.ServiceName)
-                }
-
-                return [...this.logNodes.values()]
-            },
-            getErrorNode: async (error: Error, logID: number) => new ErrorNode(this, error, logID),
-            getNoChildrenPlaceholderNode: async () =>
-                new PlaceholderNode(this, localize('AWS.explorerNode.apprunner.nologs', '[No App Runner logs found]')),
-            sort: (nodeA: AppRunnerServiceNode, nodeB: AppRunnerServiceNode) =>
-                nodeA.label!.localeCompare(nodeB.label!),
-        })
+    protected async getLogGroups(client: CloudWatchLogsClient): Promise<Map<string, CloudWatchLogs.LogGroup>> {
+        return toMap(
+            await toArrayAsync(
+                client.describeLogGroups({ logGroupNamePrefix: `/aws/apprunner/${this.info.ServiceName}/` })
+            ),
+            configuration => configuration.logGroupName
+        )
     }
 
     private setLabel(): void {
@@ -79,7 +68,7 @@ export class AppRunnerServiceNode extends AWSTreeNodeBase {
         }
 
         this.info = Object.assign(this.info, info)
-        this.contextValue = `awsAppRunnerServiceNode.${this.info.Status}`
+        this.contextValue = `${CONTEXT_BASE}.${this.info.Status}`
         this.setLabel()
 
         this.refresh()
@@ -130,17 +119,5 @@ export class AppRunnerServiceNode extends AWSTreeNodeBase {
         this.update({})
         // Node will disappear after 2 seconds
         setTimeout(() => this.parent.refresh(), 2000)
-    }
-
-    // Generates two log nodes per service node
-    private async createLogNodes(name: string): Promise<void> {
-        const cloudWatchClient: CloudWatchLogsClient = ext.toolkitClientBuilder.createCloudWatchLogsClient('us-east-1')
-        const logs = await toArrayAsync(
-            cloudWatchClient.describeLogGroups({ logGroupNamePrefix: `/aws/apprunner/${name}/` })
-        )
-
-        logs.forEach(log => {
-            this.logNodes.set(log.arn!, new LogGroupNode(this, 'us-east-1', log))
-        })
     }
 }

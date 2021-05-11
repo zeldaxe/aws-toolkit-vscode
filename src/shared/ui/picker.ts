@@ -50,13 +50,12 @@ export function createQuickPick<T extends vscode.QuickPickItem>({
     // Updates the picker items
     function update(value?: string) {
         if (value) {
-            // @ts-ignore
             picker.items = [
                 {
                     label: options!.customUserInputLabel,
                     description: value,
                     alwaysShow: true,
-                },
+                } as T,
                 ...(items ?? []),
             ]
         } else {

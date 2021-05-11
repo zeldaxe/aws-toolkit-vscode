@@ -2,5 +2,6 @@ node_modules/**
 third-party
 **/*.json
 src/shared/telemetry/clienttelemetry.d.ts
+src/shared/apprunner/models/apprunner.d.ts
 **/*.gen.ts
 types/git.d.ts

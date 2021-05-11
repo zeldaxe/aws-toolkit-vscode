@@ -6,7 +6,7 @@
 import * as vscode from 'vscode'
 import { MultiStepWizard } from '../../shared/wizards/multiStepWizard'
 import { createQuickPick, promptUser, verifySinglePickerOutput } from '../../shared/ui/picker'
-import AppRunner = require('../models/apprunner')
+import * as AppRunner from '../models/apprunner'
 import * as nls from 'vscode-nls'
 import {
     CreateAppRunnerServiceWizard,

@@ -13,7 +13,7 @@ import {
     WIZARD_TERMINATE,
 } from '../../shared/wizards/multiStepWizard'
 import { createQuickPick, promptUser, verifySinglePickerOutput } from '../../shared/ui/picker'
-import AppRunner = require('../models/apprunner')
+import * as AppRunner from '../models/apprunner'
 import * as nls from 'vscode-nls'
 import { createHelpButton } from '../../shared/ui/buttons'
 import * as input from '../../shared/ui/input'
@@ -50,7 +50,8 @@ interface AppRunnerCreateServiceWizardContext {
 
 export class DefaultAppRunnerCreateServiceWizardContext
     extends WizardContext
-    implements AppRunnerCreateServiceWizardContext {
+    implements AppRunnerCreateServiceWizardContext
+{
     // TODO: link help button to docs specifically to the service formerly known as Fusion
     private readonly helpButton = createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation'))
     //private iamRoles: IAM.roleListType | undefined
@@ -64,7 +65,6 @@ export class DefaultAppRunnerCreateServiceWizardContext
         this.iamClient = ext.toolkitClientBuilder.createIamClient(this.defaultRegion)
         this.ecrClient = ext.toolkitClientBuilder.createEcrClient(this.defaultRegion)
     }
-
     public async promptForRepository(): Promise<any | undefined> {
         this.additionalSteps = 2 // Have to prompt for branch + runtime now
         const remotes = getRemotes(await getApiForGit())
@@ -72,14 +72,17 @@ export class DefaultAppRunnerCreateServiceWizardContext
         const quickPick = createQuickPick<vscode.QuickPickItem & { remote: Remote }>({
             options: {
                 ignoreFocusOut: true,
-                title: localize('AWS.apprunner.createService.selectRepository.title', 'Select a remote repository'),
+                title: localize(
+                    'AWS.apprunner.createService.selectRepository.title',
+                    'Select a remote GitHub repository'
+                ),
                 step: 3,
                 totalSteps: this.totalSteps + this.additionalSteps,
                 placeHolder: localize(
                     'AWS.apprunner.createService.selectRepository.placeholder',
                     'Select a remote repository or enter a URL'
                 ),
-                customUserInputLabel: 'Custom URL',
+                customUserInputLabel: 'GitHub URL',
             },
             buttons: [vscode.QuickInputButtons.Back],
             items: remotes.map((remote: Remote) => ({ label: remote.name, detail: remote.fetchUrl, remote: remote })),

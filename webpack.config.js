@@ -35,6 +35,7 @@ const baseConfig = {
     devtool: 'source-map',
     externals: {
         vscode: 'commonjs vscode',
+        '../../../types/git': './git',
     },
     resolve: {
         extensions: ['.ts', '.js'],

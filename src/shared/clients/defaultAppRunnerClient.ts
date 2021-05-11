@@ -6,7 +6,7 @@ import { Service } from 'aws-sdk'
 import { ext } from '../../shared/extensionGlobals'
 
 // TODO: These two files can be removed when App Runner is officially released:
-import AppRunner = require('../../apprunner/models/apprunner')
+import * as AppRunner from '../../apprunner/models/apprunner'
 import apiConfig = require('../../apprunner/models/service-2.json')
 import { AppRunnerClient } from './apprunnerClient'
 
