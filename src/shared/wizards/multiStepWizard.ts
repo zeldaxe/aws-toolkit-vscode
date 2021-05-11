@@ -225,41 +225,45 @@ export async function promptUserForLocation(
     return pickerResponse.getUri()
 }
 
-interface WizardStepX<TState> {
+export interface StateMacineStep<TState> {
     nextState?: TState
-    nextSteps?: WizardStepFunction<TState>[]
+    nextSteps?: StateStepFunction<TState>[]
 }
 
-interface WizardExtraState {
+export interface ExtendedMachineState {
     currentStep: number
     totalSteps: number
     /** Errors are injected into the current state if the next state failed */
     /** This essentially allows steps to communicate to previous steps */
     error?: Error
+    // TODO: design step specific state
+    stepSpecific?: { [key: string]: any }
 }
 
-type WizardStepFunction<TState> = (state: TState) => Promise<WizardStepX<TState>>
-export type WizardState<TState> = TState & WizardExtraState
+export type StateStepFunction<TState> = (state: TState, lastState?: TState) => Promise<StateMacineStep<TState>>
+export type MachineState<TState> = TState & ExtendedMachineState
 /**
  * A multi-step wizard controller. Very fancy, very cool.
+ * TODO: add forward-state preservation
+ * anonymous branches may need to be convrted to SMCs upon their addition
  */
-export class NewMultiStepWizard<TState, TResult> {
-    private previousStates: WizardState<TState>[] = []
+export class StateMachineController<TState, TResult> {
+    private previousStates: MachineState<TState>[] = []
     private extraSteps = new Map<number, number>()
-    private steps: WizardStepFunction<WizardState<TState>>[] = []
+    private steps: StateStepFunction<MachineState<TState>>[] = []
     private internalStep = 0
-    private state!: WizardState<TState>
-    private finalState: WizardState<TState> | undefined
+    private state!: MachineState<TState>
+    private finalState: MachineState<TState> | undefined
 
     public constructor(
-        private outputResult: (state: WizardState<TState>) => TResult,
-        initState?: TState | WizardState<TState>
+        private outputResult: (state: MachineState<TState>) => TResult,
+        initState?: TState | MachineState<TState>
     ) {
         this.setState(initState)
     }
 
     public setState<AltTState>(state?: AltTState) {
-        this.state = { ...state } as WizardState<TState>
+        this.state = { ...state } as MachineState<TState>
         this.state.currentStep = this.state.currentStep ?? 1
         this.state.totalSteps = (this.steps.length ?? 0) + (this.state.totalSteps ?? 0)
     }
@@ -272,25 +276,25 @@ export class NewMultiStepWizard<TState, TResult> {
         this.extraSteps.clear()
     }
 
-    public addStep(step: WizardStepFunction<WizardState<TState>>): void
+    public addStep(step: StateStepFunction<MachineState<TState>>): void
 
     public addStep<AltTState, AltTResult>(
-        wizard: NewMultiStepWizard<AltTState, AltTResult>,
-        nextState: (state: WizardState<AltTState>, result: AltTResult | undefined) => WizardState<TState>,
+        machine: StateMachineController<AltTState, AltTResult>,
+        nextState: (state: MachineState<AltTState>, result: AltTResult | undefined) => MachineState<TState>,
         nextSteps: (
-            state: WizardState<AltTState>,
+            state: MachineState<AltTState>,
             result: AltTResult | undefined
-        ) => WizardStepFunction<WizardState<TState>>[]
+        ) => StateStepFunction<MachineState<TState>>[]
     ): void
 
-    /** Adds a single step to the wizard. A step can also be another wizard. */
+    /** Adds a single step to the state machine. A step can also be another state machine. */
     public addStep<AltTState, AltTResult>(
-        step: WizardStepFunction<WizardState<TState>> | NewMultiStepWizard<AltTState, AltTResult>,
-        nextState?: (state: WizardState<AltTState>, result: AltTResult | undefined) => WizardState<TState>,
+        step: StateStepFunction<MachineState<TState>> | StateMachineController<AltTState, AltTResult>,
+        nextState?: (state: MachineState<AltTState>, result: AltTResult | undefined) => MachineState<TState>,
         nextSteps?: (
-            state: WizardState<AltTState>,
+            state: MachineState<AltTState>,
             result: AltTResult | undefined
-        ) => WizardStepFunction<WizardState<TState>>[]
+        ) => StateStepFunction<MachineState<TState>>[]
     ): void {
         if (typeof step === 'function') {
             this.steps.push(step)
@@ -317,7 +321,7 @@ export class NewMultiStepWizard<TState, TResult> {
         this.state.totalSteps += 1
     }
 
-    public getFinalState(): WizardState<TState> | undefined {
+    public getFinalState(): MachineState<TState> | undefined {
         return this.finalState ? { ...this.finalState } : undefined
     }
 
@@ -361,6 +365,7 @@ export class NewMultiStepWizard<TState, TResult> {
 
                     this.previousStates.push({ ...stepOutput.nextState })
                     this.state = stepOutput.nextState
+                    this.state.stepSpecific = undefined
                     this.internalStep += 1
                     this.state.currentStep += 1
 
@@ -374,8 +379,8 @@ export class NewMultiStepWizard<TState, TResult> {
                 if (this.state.error !== undefined) {
                     this.state.error = err
                 } else {
-                    getLogger().debug('wizard: terminated due to unhandled exception %O', err)
-                    return undefined
+                    getLogger().debug('state machine controller: terminated due to unhandled exception %O', err)
+                    throw { ...err, state: (err.state ?? []).concat([this.state]) }
                 }
             }
         }

@@ -12,10 +12,7 @@ import * as nls from 'vscode-nls'
 import { AppRunnerClient } from '../../shared/clients/apprunnerClient'
 import { getPaginatedAwsCallIter } from '../../shared/utilities/collectionUtils'
 import * as AppRunner from '../models/apprunner'
-import {
-    CreateAppRunnerServiceWizard,
-    DefaultAppRunnerCreateServiceWizardContext,
-} from '../wizards/apprunnerCreateServiceWizard'
+import { CreateAppRunnerServiceWizard } from '../wizards/wizardpart2'
 const localize = nls.loadMessageBundle()
 
 export class AppRunnerNode extends AWSTreeNodeBase {
@@ -82,15 +79,19 @@ export class AppRunnerNode extends AWSTreeNodeBase {
     }
 
     public async createService(): Promise<void> {
-        const wizard = new CreateAppRunnerServiceWizard(new DefaultAppRunnerCreateServiceWizardContext('us-east-1'))
-        const result = await wizard.run()
-        if (result !== undefined) {
-            try {
-                await this.client.createService(result)
-                this.refresh()
-            } catch (e) {
-                console.log(e)
+        const wizard = new CreateAppRunnerServiceWizard('us-east-1')
+        try {
+            const result = await wizard.run()
+            if (result !== undefined) {
+                try {
+                    await this.client.createService(result)
+                    this.refresh()
+                } catch (e) {
+                    console.log(e)
+                }
             }
+        } catch (err) {
+            console.log(err)
         }
     }
 }

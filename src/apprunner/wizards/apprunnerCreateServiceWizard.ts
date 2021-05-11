@@ -171,7 +171,7 @@ export class DefaultAppRunnerCreateServiceWizardContext
         const quickPick = createQuickPick<vscode.QuickPickItem & { sourceType: AppRunnerSourceType }>({
             options: {
                 ignoreFocusOut: true,
-                title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select ECR access role'),
+                title: localize('AWS.apprunner.createService.sourceType.title', 'Select source code location type'),
                 value: '',
                 step: 2,
                 totalSteps: this.totalSteps + this.additionalSteps,
@@ -179,7 +179,7 @@ export class DefaultAppRunnerCreateServiceWizardContext
             buttons: [vscode.QuickInputButtons.Back],
             items: [
                 { label: 'ECR', sourceType: 'ECR' },
-                { label: 'Public ECR', sourceType: 'ECR-Public' },
+                //{ label: 'Public ECR', sourceType: 'ECR-Public' },
                 { label: 'Repository', sourceType: 'Repository' },
             ],
         })
@@ -374,6 +374,7 @@ export class CreateAppRunnerServiceWizard extends MultiStepWizard<AppRunner.Crea
     private repository?: Remote
     private branch?: Branch
     private runtime?: AppRunnerRuntime
+    private isPublic?: boolean
 
     public constructor(private readonly context: AppRunnerCreateServiceWizardContext) {
         super()
@@ -408,13 +409,13 @@ export class CreateAppRunnerServiceWizard extends MultiStepWizard<AppRunner.Crea
                           }
                         : undefined,
                 ImageRepository:
-                    this.source === 'ECR' || this.source === 'ECR-Public'
+                    this.source === 'ECR'
                         ? {
                               ImageIdentifier: `${this.imageRepo?.repositoryUri}:${this.imageRepo?.tag}`,
                               ImageConfiguration: {
                                   Port: this.port!,
                               },
-                              ImageRepositoryType: this.source!,
+                              ImageRepositoryType: this.isPublic ? 'ECR-Public' : 'ECR',
                           }
                         : undefined,
                 AuthenticationConfiguration:
@@ -477,9 +478,9 @@ export class CreateAppRunnerServiceWizard extends MultiStepWizard<AppRunner.Crea
 
     private readonly IMAGE_TAG_ACTION: WizardStep = async () => {
         this.imageRepo!.tag = await this.context.promptForImageTag(this.imageRepo!)
-        console.log(this.imageRepo)
         // If this is a public image then we can skip asking for a role
         if (this.imageRepo && this.imageRepo.repositoryUri.search(/$public.ecr.aws/) !== -1) {
+            this.isPublic = true
             return this.imageRepo!.tag ? wizardContinue(this.PORT_ACTION) : WIZARD_GOBACK
         }
         return this.imageRepo!.tag ? wizardContinue(this.ROLE_ACTION) : WIZARD_GOBACK

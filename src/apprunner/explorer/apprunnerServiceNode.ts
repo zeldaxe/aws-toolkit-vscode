@@ -15,7 +15,7 @@ import { CloudWatchLogsParentNode } from '../../cloudWatchLogs/explorer/cloudWat
 import { CloudWatchLogs } from 'aws-sdk'
 const localize = nls.loadMessageBundle()
 
-const AUTO_REFRESH_INTERVAL = 1000
+const AUTO_REFRESH_INTERVAL = 5000
 const CONTEXT_BASE = 'awsAppRunnerServiceNode'
 
 const OPERATION_STATUS: { [key: string]: string } = {

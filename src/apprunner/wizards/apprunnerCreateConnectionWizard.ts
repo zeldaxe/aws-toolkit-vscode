@@ -9,7 +9,7 @@ import {
     NewMultiStepWizard,
     WizardContext,
     wizardContinue,
-    WizardState,
+    MachineState,
     WizardStep,
     WIZARD_GOBACK,
     WIZARD_TERMINATE,
@@ -95,7 +95,7 @@ interface ConnectionState {
     name2: string
 }
 
-function MapStateToRequest(state: WizardState<ConnectionState>): AppRunner.CreateConnectionRequest {
+function MapStateToRequest(state: MachineState<ConnectionState>): AppRunner.CreateConnectionRequest {
     return {
         ConnectionName: state.name,
         ProviderType: 'GITHUB',
@@ -110,12 +110,12 @@ export function makeApprunnerConnectionWizard(): NewMultiStepWizard<
     const wizard2 = new NewMultiStepWizard(MapStateToRequest)
     const wizard3 = new NewMultiStepWizard(MapStateToRequest)
 
-    const nameStep = async (state: WizardState<ConnectionState>) => {
+    const nameStep = async (state: MachineState<ConnectionState>) => {
         state.name = (await promptForConnectionName(state.currentStep, state.totalSteps, state.name))!
         return { nextState: state.name === undefined ? undefined : state }
     }
 
-    const nameStep2 = async (state: WizardState<ConnectionState>) => {
+    const nameStep2 = async (state: MachineState<ConnectionState>) => {
         state.name2 = (await promptForConnectionName(state.currentStep, state.totalSteps, state.name2))!
         return {
             nextState: state?.name2 === undefined ? undefined : state,
