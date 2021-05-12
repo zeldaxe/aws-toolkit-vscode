@@ -41,6 +41,9 @@ type MetadataQuickPickItem<T> = vscode.QuickPickItem & { metadata: T }
 // The state machine controller currently only makes shallow copies of states, so having state fields be top-level
 // is preferred to perserve immutability of states.
 // TODO: it may be better to map state 1:1 (or as close as possible) to the output type
+// Note: recursively determining types using the Typescript compiler was too slow to be usable
+// because of this, it might be better to just stick with the flat state structure.
+// modularity can be created by breaking up the state types into mutliple logical chunks
 type CreateServiceState = MachineState<{
     //picked?: MetadataQuickPickItem<any>[]
     name?: string
@@ -125,9 +128,8 @@ async function promptForProperty<TState extends ExtendedMachineState & { helpBut
     return choice ? state : undefined
 }
 
-export async function promptForPropertyInput<
-    TState extends ExtendedMachineState & { helpButton: vscode.QuickInputButton },
-    TProp
+export async function promptForPropertyWithInputBox<
+    TState extends ExtendedMachineState & { helpButton: vscode.QuickInputButton }
 >(
     state: TState,
     property: keyof TState,
@@ -253,7 +255,7 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             return undefined
         }
 
-        const outState = await promptForPropertyInput(state, 'name', validateName, {
+        const outState = await promptForPropertyWithInputBox(state, 'name', validateName, {
             title: localize('AWS.apprunner.createService.name.title', 'Name your service'),
             ignoreFocusOut: true,
         })
@@ -428,7 +430,7 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             return undefined
         }
 
-        const outState = await promptForPropertyInput(state, 'port', validatePort, {
+        const outState = await promptForPropertyWithInputBox(state, 'port', validatePort, {
             title: localize('AWS.apprunner.createService.selectPort.title', 'Enter a port for the new service'),
             ignoreFocusOut: true,
             placeHolder: 'Enter a port',
@@ -461,7 +463,7 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             python: 'pip install -r requirements.txt',
             node: 'npm install',
         } as { [key: string]: string }
-        const outState = await promptForPropertyInput(state, 'buildCommand', undefined, {
+        const outState = await promptForPropertyWithInputBox(state, 'buildCommand', undefined, {
             title: localize('AWS.apprunner.createService.buildCommand.title', 'Enter a build command'),
             ignoreFocusOut: true,
             placeHolder:
@@ -478,7 +480,7 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             python: 'python runapp.py',
             node: 'node app.js',
         } as { [key: string]: string }
-        const outState = await promptForPropertyInput(state, 'startCommand', undefined, {
+        const outState = await promptForPropertyWithInputBox(state, 'startCommand', undefined, {
             title: localize('AWS.apprunner.createService.startCommand.title', 'Enter a start command'),
             ignoreFocusOut: true,
             placeHolder:

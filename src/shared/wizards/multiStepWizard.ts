@@ -248,9 +248,6 @@ export type StateBranch<TState> = StateStepFunction<MachineState<TState>>[]
 export type MachineState<TState> = TState & ExtendedMachineState
 /**
  * A multi-step wizard controller. Very fancy, very cool.
- * TODO: add forward-state preservation
- * anonymous branches may need to be convrted to SMCs upon their addition
- * soooo future caching of anonymous branches requires them to be constant (or we can name then)
  */
 export class StateMachineController<TState, TResult> {
     private previousStates: MachineState<TState>[] = []
@@ -302,7 +299,7 @@ export class StateMachineController<TState, TResult> {
     ): void
 
     /** Adds a single step to the state machine. A step can also be another state machine. */
-    public addStep<AltTState, AltTResult>(
+    public addStep<AltTState = TState, AltTResult = TResult>(
         step:
             | StateStepFunction<MachineState<TState>>
             | StateStepFunction<MachineState<TState>>
