@@ -230,36 +230,49 @@ export interface StateMacineStep<TState> {
     nextSteps?: StateStepFunction<TState>[]
 }
 
+// TODO: assign counter as non-enumerable and private
+type StepCache = { [key: string]: any }
+
 export interface ExtendedMachineState {
     currentStep: number
     totalSteps: number
     /** Errors are injected into the current state if the next state failed */
     /** This essentially allows steps to communicate to previous steps */
     error?: Error
-    // TODO: design step specific state
-    stepSpecific?: { [key: string]: any }
+    /**
+     * Persistent information that exists on a per-step basis
+     * This should not be used for determining state transitions as it would violate
+     * the deterministic nature of the state machine
+     */
+    stepCache?: StepCache
 }
 
-export type StateStepFunction<TState> = (state: TState, lastState?: TState) => Promise<StateMacineStep<TState>>
+export type StateStepFunction<TState> = (state: TState) => Promise<StateMacineStep<TState>>
+export type StateBranch<TState> = StateStepFunction<MachineState<TState>>[]
 export type MachineState<TState> = TState & ExtendedMachineState
 /**
  * A multi-step wizard controller. Very fancy, very cool.
  * TODO: add forward-state preservation
  * anonymous branches may need to be convrted to SMCs upon their addition
+ * soooo future caching of anonymous branches requires them to be constant (or we can name then)
  */
 export class StateMachineController<TState, TResult> {
     private previousStates: MachineState<TState>[] = []
-    private extraSteps = new Map<number, number>()
-    private steps: StateStepFunction<MachineState<TState>>[] = []
+    private futureStateCache: WeakMap<StateStepFunction<MachineState<TState>>, StepCache | undefined> = new WeakMap()
+    private extraSteps = new Map<number, StateBranch<TState>>()
+    private steps: StateBranch<TState> = []
     private internalStep = 0
     private state!: MachineState<TState>
     private finalState: MachineState<TState> | undefined
 
     public constructor(
         private outputResult: (state: MachineState<TState>) => TResult,
-        initState?: TState | MachineState<TState>
+        private readonly options: {
+            initState?: TState | MachineState<TState>
+            disableFutureMemory?: boolean
+        } = {}
     ) {
-        this.setState(initState)
+        this.setState(options.initState)
     }
 
     public setState<AltTState>(state?: AltTState) {
@@ -274,6 +287,7 @@ export class StateMachineController<TState, TResult> {
         this.previousStates = this.previousStates.slice(0, 1)
         this.internalStep = 0
         this.extraSteps.clear()
+        this.futureStateCache = new WeakMap()
     }
 
     public addStep(step: StateStepFunction<MachineState<TState>>): void
@@ -289,7 +303,10 @@ export class StateMachineController<TState, TResult> {
 
     /** Adds a single step to the state machine. A step can also be another state machine. */
     public addStep<AltTState, AltTResult>(
-        step: StateStepFunction<MachineState<TState>> | StateMachineController<AltTState, AltTResult>,
+        step:
+            | StateStepFunction<MachineState<TState>>
+            | StateStepFunction<MachineState<TState>>
+            | StateMachineController<AltTState, AltTResult>,
         nextState?: (state: MachineState<AltTState>, result: AltTResult | undefined) => MachineState<TState>,
         nextSteps?: (
             state: MachineState<AltTState>,
@@ -316,7 +333,7 @@ export class StateMachineController<TState, TResult> {
                 }
             })
         } else {
-            throw Error('Invalid wizard step')
+            throw Error('Invalid state machine step')
         }
         this.state.totalSteps += 1
     }
@@ -331,7 +348,7 @@ export class StateMachineController<TState, TResult> {
         }
 
         if (this.extraSteps.has(this.internalStep)) {
-            this.steps.splice(this.internalStep, this.extraSteps.get(this.internalStep))
+            this.steps.splice(this.internalStep, this.extraSteps.get(this.internalStep)!.length)
             this.extraSteps.delete(this.internalStep)
         }
 
@@ -363,16 +380,22 @@ export class StateMachineController<TState, TResult> {
                         throw stepOutput.nextState.error
                     }
 
+                    this.futureStateCache.set(this.steps[this.internalStep], this.state.stepCache)
                     this.previousStates.push({ ...stepOutput.nextState })
                     this.state = stepOutput.nextState
-                    this.state.stepSpecific = undefined
+                    this.state.stepCache = undefined
                     this.internalStep += 1
                     this.state.currentStep += 1
 
                     if (stepOutput.nextSteps !== undefined && stepOutput.nextSteps.length > 0) {
                         this.steps.splice(this.internalStep, 0, ...stepOutput.nextSteps)
-                        this.extraSteps.set(this.internalStep, stepOutput.nextSteps.length)
+                        this.extraSteps.set(this.internalStep, stepOutput.nextSteps)
                         this.state.totalSteps += stepOutput.nextSteps.length
+                    }
+
+                    if (this.options.disableFutureMemory !== true) {
+                        // future cache
+                        this.state.stepCache = this.futureStateCache.get(this.steps[this.internalStep])
                     }
                 }
             } catch (err) {
@@ -380,7 +403,7 @@ export class StateMachineController<TState, TResult> {
                     this.state.error = err
                 } else {
                     getLogger().debug('state machine controller: terminated due to unhandled exception %O', err)
-                    throw { ...err, state: (err.state ?? []).concat([this.state]) }
+                    throw { message: err.message, stack: err.stack, state: (err.state ?? []).concat([this.state]) }
                 }
             }
         }

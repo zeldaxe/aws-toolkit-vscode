@@ -15,6 +15,8 @@ export interface AdditionalInputBoxOptions {
     totalSteps?: number
 }
 
+export type ExtendedInputBoxOptions = vscode.InputBoxOptions & AdditionalInputBoxOptions
+
 /**
  * Creates an InputBox to get a text response from the user.
  *
@@ -30,7 +32,7 @@ export function createInputBox({
     options,
     buttons,
 }: {
-    options?: vscode.InputBoxOptions & AdditionalInputBoxOptions
+    options?: ExtendedInputBoxOptions
     buttons?: vscode.QuickInputButton[]
 }): vscode.InputBox {
     const inputBox = vscode.window.createInputBox()

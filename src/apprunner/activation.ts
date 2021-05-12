@@ -21,13 +21,6 @@ export async function activate(extensionContext: vscode.ExtensionContext): Promi
             vscode.env.clipboard.writeText(node.getUrl())
         ),
         vscode.commands.registerCommand('aws.apprunner.startDeployment', (node: AppRunnerServiceNode) => node.deploy()),
-        vscode.commands.registerCommand(
-            'aws.apprunner.deleteService',
-            //(node: AppRunnerServiceNode) => node.delete()
-            () =>
-                makeApprunnerConnectionWizard()
-                    .run()
-                    .then(r => console.log(r))
-        )
+        vscode.commands.registerCommand('aws.apprunner.deleteService', (node: AppRunnerServiceNode) => node.delete())
     )
 }

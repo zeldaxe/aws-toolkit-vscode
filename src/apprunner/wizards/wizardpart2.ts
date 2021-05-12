@@ -7,14 +7,8 @@ import * as vscode from 'vscode'
 import {
     ExtendedMachineState,
     MachineState,
-    MultiStepWizard,
     StateMachineController,
     StateStepFunction,
-    WizardContext,
-    wizardContinue,
-    WizardStep,
-    WIZARD_GOBACK,
-    WIZARD_TERMINATE,
 } from '../../shared/wizards/multiStepWizard'
 import {
     createQuickPick,
@@ -44,9 +38,9 @@ type AppRunnerRuntime = 'PYTHON_3' | 'NODEJS_12'
 type TaggedEcrRepository = EcrRepository & { tag?: string }
 
 type MetadataQuickPickItem<T> = vscode.QuickPickItem & { metadata: T }
-
 // The state machine controller currently only makes shallow copies of states, so having state fields be top-level
 // is preferred to perserve immutability of states.
+// TODO: it may be better to map state 1:1 (or as close as possible) to the output type
 type CreateServiceState = MachineState<{
     //picked?: MetadataQuickPickItem<any>[]
     name?: string
@@ -57,26 +51,31 @@ type CreateServiceState = MachineState<{
     repository?: Remote
     branch?: Branch
     runtime?: AppRunnerRuntime
+    buildCommand?: string
+    startCommand?: string
     isPublic?: boolean
+    instanceConfig?: { cpu: number; mem: number }
     iamClient: IamClient
     ecrClient: EcrClient
     helpButton: vscode.QuickInputButton
 }>
 // mutates a state's property
-// very abstract
+//
 // TODO: add capacity for default
 // need to differentiate between user hitting enter with no defined quick pick versus back button
 // technically can support multiple selections if the state property takes an array
 // TODO: picked data needs to be scrubbed upon reaching a new state (have step-specific state information??)
 async function promptForProperty<TState extends ExtendedMachineState & { helpButton: vscode.QuickInputButton }, TProp>(
     state: TState,
-    items: MetadataQuickPickItem<TProp>[],
     property: keyof TState,
+    items?: MetadataQuickPickItem<TProp>[],
     transformUserInput?: (input?: string) => TProp,
     options?: ExtendedQuickPickOptions
 ): Promise<TState | undefined> {
-    const picked: MetadataQuickPickItem<any>[] = state.stepSpecific ? state.stepSpecific.picked : undefined
+    const picked: MetadataQuickPickItem<any>[] = state.stepCache ? state.stepCache.picked : undefined
     const isUserInput = picked && picked[0].metadata === CUSTOM_USER_INPUT
+
+    // TODO: undefined items will be inferred as a quick input by convention
 
     const quickPick = createQuickPick<MetadataQuickPickItem<TProp | symbol>>({
         options: {
@@ -89,7 +88,7 @@ async function promptForProperty<TState extends ExtendedMachineState & { helpBut
         items: items,
     })
 
-    if (!isUserInput) {
+    if (!isUserInput && items) {
         quickPick.activeItems = items.filter(item => picked?.map(item => item.label).includes(item.label))
 
         if (quickPick.activeItems.length === 0) {
@@ -111,40 +110,45 @@ async function promptForProperty<TState extends ExtendedMachineState & { helpBut
 
     const choice = verifySinglePickerOutput(choices)
     if (choice !== undefined) {
-        state.stepSpecific = { picked: [choice] }
+        state.stepCache = { picked: [choice] }
         if (transformUserInput && choice.metadata === CUSTOM_USER_INPUT) {
-            Object.defineProperty(state, property, { value: transformUserInput(choice.description), enumerable: true })
+            Object.defineProperty(state, property, {
+                value: transformUserInput(choice.description),
+                enumerable: true,
+                configurable: true,
+            })
         } else {
-            Object.defineProperty(state, property, { value: choice.metadata, enumerable: true })
+            Object.defineProperty(state, property, { value: choice.metadata, enumerable: true, configurable: true })
         }
     }
 
     return choice ? state : undefined
 }
 
-async function promptForServiceName(state: CreateServiceState): Promise<string | undefined> {
+export async function promptForPropertyInput<
+    TState extends ExtendedMachineState & { helpButton: vscode.QuickInputButton },
+    TProp
+>(
+    state: TState,
+    property: keyof TState,
+    onValidateInput?: (value: string) => string | undefined,
+    options?: input.ExtendedInputBoxOptions
+): Promise<TState | undefined> {
+    const picked: MetadataQuickPickItem<any>[] = state.stepCache ? state.stepCache.picked : undefined
+
     const inputBox = input.createInputBox({
         options: {
-            title: localize('AWS.apprunner.createService.name.title', 'Name your service'),
-            ignoreFocusOut: true,
+            value: picked ? picked[0].label : undefined,
             step: state.currentStep,
             totalSteps: state.totalSteps,
+            ...options,
         },
         buttons: [state.helpButton, vscode.QuickInputButtons.Back],
     })
 
-    return await input.promptUser({
+    const userInput = await input.promptUser({
         inputBox: inputBox,
-        onValidateInput: (value: string) => {
-            if (!value || value.length < 4) {
-                return localize(
-                    'AWS.apprunner.createService.name.validation',
-                    'Service names must be at least 4 characters'
-                )
-            }
-
-            return undefined
-        },
+        onValidateInput: onValidateInput,
         onDidTriggerButton: (button, resolve, reject) => {
             if (button === vscode.QuickInputButtons.Back) {
                 resolve(undefined)
@@ -154,173 +158,13 @@ async function promptForServiceName(state: CreateServiceState): Promise<string |
             }
         },
     })
-}
 
-async function promptForImageIdentifier(state: CreateServiceState): Promise<TaggedEcrRepository | undefined> {
-    const imageRepos = await toArrayAsync(state.ecrClient.describeRepositories())
-
-    const quickPick = createQuickPick<vscode.QuickPickItem & { repo: TaggedEcrRepository }>({
-        options: {
-            ignoreFocusOut: true,
-            title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select ECR access role'),
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-            placeHolder: '111111111111.dkr.ecr.us-east-1.amazonaws.com/myrepo:latest',
-            customUserInputLabel: 'Custom ECR URL',
-        },
-        buttons: [vscode.QuickInputButtons.Back],
-        items: imageRepos.map(repo => ({ label: repo.repositoryName, detail: repo.repositoryUri, repo: repo })),
-    })
-
-    const choices = await promptUser({
-        picker: quickPick,
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            }
-        },
-    })
-
-    const result = verifySinglePickerOutput(choices)
-
-    if (result?.repo === undefined) {
-        const userInputParts = result?.description?.split(':')
-        return userInputParts?.length === 2
-            ? {
-                  repositoryArn: '',
-                  repositoryName: 'UserDefined',
-                  repositoryUri: userInputParts[0],
-                  tag: userInputParts[1],
-              }
-            : undefined
+    if (userInput !== undefined) {
+        state.stepCache = { picked: [{ label: userInput }] }
+        Object.defineProperty(state, property, { value: userInput, enumerable: true, configurable: true })
     }
 
-    return result?.repo
-}
-
-async function promptForImageTag(state: CreateServiceState): Promise<string | undefined> {
-    const imageTags = await toArrayAsync(state.ecrClient.describeTags(state.imageRepo!.repositoryName))
-
-    const quickPick = createQuickPick<vscode.QuickPickItem>({
-        options: {
-            ignoreFocusOut: true,
-            title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select an ECR tag'),
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-            placeHolder: 'latest',
-        },
-        buttons: [vscode.QuickInputButtons.Back],
-        items: imageTags.map(tag => ({ label: tag })),
-    })
-
-    const choices = await promptUser({
-        picker: quickPick,
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            }
-        },
-    })
-
-    return verifySinglePickerOutput(choices)?.label
-}
-
-async function promptForPort(state: CreateServiceState): Promise<string | undefined> {
-    const inputBox = input.createInputBox({
-        options: {
-            title: localize('AWS.apprunner.createService.selectPort.title', 'Enter a port for the new service'),
-            ignoreFocusOut: true,
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-            placeHolder: 'Enter a port',
-        },
-        buttons: [state.helpButton, vscode.QuickInputButtons.Back],
-    })
-
-    inputBox.value = DEFAULT_PORT
-
-    return await input.promptUser({
-        inputBox: inputBox,
-        onValidateInput: (value: string) => {
-            if (isNaN(Number(value)) || value === '') {
-                return localize('AWS.apprunner.createService.selectPort.invalidPort', 'Port must be a number')
-            }
-
-            return undefined
-        },
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            } else if (button === state.helpButton) {
-                // TODO: add URL
-                vscode.env.openExternal(vscode.Uri.parse(''))
-            }
-        },
-    })
-}
-
-/**
- * The service formerly known as Fusion is supposedly planning on making the access role automatically
- * created. Right now it is incredibly cumbersome to ask users for this information.
- */
-async function promptForAccessRole(state: CreateServiceState): Promise<string | undefined> {
-    // TODO: don't actually do this to filter out access roles...
-    const resp = (await state.iamClient.listRoles()).Roles.filter(role =>
-        (role.AssumeRolePolicyDocument ?? '').includes('bullet')
-    )
-
-    const quickPick = createQuickPick<vscode.QuickPickItem & { arn: AppRunner.FusionResourceArn }>({
-        options: {
-            ignoreFocusOut: true,
-            title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select ECR access role'),
-            value: '',
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-        },
-        buttons: [vscode.QuickInputButtons.Back],
-        items: resp.map(role => ({ label: role.RoleName, arn: role.Arn })),
-    })
-
-    const choices = await promptUser({
-        picker: quickPick,
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            }
-        },
-    })
-
-    return verifySinglePickerOutput(choices)?.arn
-}
-
-async function promptForRuntime(state: CreateServiceState): Promise<AppRunnerRuntime | undefined> {
-    const quickPick = createQuickPick<vscode.QuickPickItem & { runtime: AppRunnerRuntime }>({
-        options: {
-            ignoreFocusOut: true,
-            title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select ECR access role'),
-            value: '',
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-        },
-        buttons: [vscode.QuickInputButtons.Back],
-        items: [
-            // labels and runtimes are separate in case we want the user-facing name to be different
-            { label: 'python3', runtime: 'PYTHON_3' },
-            //{ label: 'nodejs10', runtime: 'nodejs10' },
-            { label: 'nodejs12', runtime: 'NODEJS_12' },
-        ],
-    })
-
-    const choices = await promptUser({
-        picker: quickPick,
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            }
-        },
-    })
-
-    return verifySinglePickerOutput(choices)?.runtime
+    return userInput ? state : undefined
 }
 
 export class CreateAppRunnerServiceWizard extends StateMachineController<
@@ -329,19 +173,26 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
 > {
     public constructor(private readonly defaultRegion: string) {
         super(state => CreateAppRunnerServiceWizard.stateToResult(state), {
-            iamClient: ext.toolkitClientBuilder.createIamClient(defaultRegion),
-            ecrClient: ext.toolkitClientBuilder.createEcrClient(defaultRegion),
-            helpButton: createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation')),
+            initState: {
+                iamClient: ext.toolkitClientBuilder.createIamClient(defaultRegion),
+                ecrClient: ext.toolkitClientBuilder.createEcrClient(defaultRegion),
+                helpButton: createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation')),
+            },
         })
         this.addStep(CreateAppRunnerServiceWizard.nameStep)
         this.addStep(CreateAppRunnerServiceWizard.sourceStep)
         this.addStep(CreateAppRunnerServiceWizard.portStep)
+        this.addStep(CreateAppRunnerServiceWizard.instanceConfigStep)
     }
 
     // TODO: verify that these things are actually defined...
     private static stateToResult(state: CreateServiceState): AppRunner.CreateServiceRequest {
         const result: AppRunner.CreateServiceRequest = {
             ServiceName: state.name!,
+            InstanceConfiguration: {
+                Cpu: `${state.instanceConfig?.cpu} vCPU`,
+                Memory: `${state.instanceConfig?.mem} GB`,
+            },
             SourceConfiguration: {
                 CodeRepository:
                     state.source === 'Repository'
@@ -356,8 +207,8 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
                                   CodeConfigurationValues: {
                                       Port: state.port!,
                                       Runtime: state.runtime!,
-                                      BuildCommand: 'npm install', // PROMPT FOR THESE
-                                      StartCommand: 'node server.js',
+                                      BuildCommand: state.buildCommand!,
+                                      StartCommand: state.startCommand!,
                                   },
                               },
                           }
@@ -391,22 +242,34 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
     }
 
     private static nameStep: StateStepFunction<CreateServiceState> = async state => {
-        state.name = await promptForServiceName(state)
-        return { nextState: state.name !== undefined ? state : undefined }
+        const validateName = (name: string) => {
+            if (!name || name.length < 4) {
+                return localize(
+                    'AWS.apprunner.createService.name.validation',
+                    'Service names must be at least 4 characters'
+                )
+            }
+
+            return undefined
+        }
+
+        const outState = await promptForPropertyInput(state, 'name', validateName, {
+            title: localize('AWS.apprunner.createService.name.title', 'Name your service'),
+            ignoreFocusOut: true,
+        })
+        return { nextState: outState }
     }
 
     private static sourceStep: StateStepFunction<CreateServiceState> = async state => {
         //state.source = await promptForSourceType(state)
         const outState = await promptForProperty(
             state,
+            'source',
             [
                 { label: 'ECR', metadata: 'ECR' },
-                { label: 'ECR2', metadata: 'ECR' },
-                { label: 'ECR3', metadata: 'ECR' },
                 //{ label: 'Public ECR', sourceType: 'ECR-Public' },
                 { label: 'Repository', metadata: 'Repository' },
             ],
-            'source',
             undefined,
             {
                 ignoreFocusOut: true,
@@ -428,8 +291,8 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
         const remotes = getRemotes(await getApiForGit())
         const outState = await promptForProperty(
             state,
-            remotes.map((remote: any) => ({ label: remote.name, detail: remote.fetchUrl, metadata: remote })),
             'repository',
+            remotes.map((remote: any) => ({ label: remote.name, detail: remote.fetchUrl, metadata: remote })),
             (input?: string) =>
                 input ? ({ name: 'UserRemote', isReadOnly: true, fetchUrl: input } as Remote) : undefined,
             {
@@ -448,7 +311,12 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
 
         return {
             nextState: outState,
-            nextSteps: [CreateAppRunnerServiceWizard.branchStep, CreateAppRunnerServiceWizard.runtimeStep],
+            nextSteps: [
+                CreateAppRunnerServiceWizard.branchStep,
+                CreateAppRunnerServiceWizard.runtimeStep,
+                CreateAppRunnerServiceWizard.buildCommandStep,
+                CreateAppRunnerServiceWizard.startCommandStep,
+            ],
         }
     }
 
@@ -456,13 +324,13 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
         const branches = await getBranchesForRemote(await getApiForGit(), state.repository!)
         const outState = await promptForProperty(
             state,
+            'branch',
             branches
                 .filter(b => b.name !== '')
                 .map((branch: any) => ({
                     label: branch.name.replace(state.repository!.name + '/', ''),
                     metadata: branch,
                 })),
-            'branch',
             undefined,
             {
                 ignoreFocusOut: true,
@@ -473,39 +341,179 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
     }
 
     private static runtimeStep: StateStepFunction<CreateServiceState> = async state => {
-        state.runtime = await promptForRuntime(state)
-        return { nextState: state.runtime ? state : undefined }
+        const outState = await promptForProperty(
+            state,
+            'runtime',
+            [
+                // labels and runtimes are separate in case we want the user-facing name to be different
+                { label: 'python3', metadata: 'PYTHON_3' },
+                //{ label: 'nodejs10', runtime: 'nodejs10' },
+                { label: 'nodejs12', metadata: 'NODEJS_12' },
+            ],
+            undefined,
+            {
+                ignoreFocusOut: true,
+                title: localize('AWS.apprunner.createService.selectRuntime.title', 'Select a runtime'),
+            }
+        )
+
+        return { nextState: outState }
     }
 
     private static imageStep: StateStepFunction<CreateServiceState> = async state => {
-        state.imageRepo = await promptForImageIdentifier(state)
+        const imageRepos = await toArrayAsync(state.ecrClient.describeRepositories())
+        const outState = await promptForProperty(
+            state,
+            'imageRepo',
+            imageRepos.map(repo => ({ label: repo.repositoryName, detail: repo.repositoryUri, metadata: repo })),
+            (input: string = '') => {
+                const userInputParts = input.split(':')
+                return userInputParts.length === 2
+                    ? {
+                          repositoryArn: '',
+                          repositoryName: 'UserDefined',
+                          repositoryUri: userInputParts[0],
+                          tag: userInputParts[1],
+                      }
+                    : undefined
+            },
+            {
+                ignoreFocusOut: true,
+                title: localize(
+                    'AWS.apprunner.createService.selectImageRepo.title',
+                    'Select or enter an image repository'
+                ),
+                placeHolder: '111111111111.dkr.ecr.us-east-1.amazonaws.com/myrepo:latest',
+                customUserInputLabel: 'Custom ECR URL',
+            }
+        )
+
         return {
-            nextState: state.imageRepo ? state : undefined,
-            nextSteps: state.imageRepo?.tag ? undefined : [CreateAppRunnerServiceWizard.tagStep],
+            nextState: outState,
+            nextSteps: outState?.imageRepo?.tag ? undefined : [CreateAppRunnerServiceWizard.tagStep],
         }
     }
 
     private static tagStep: StateStepFunction<CreateServiceState> = async state => {
-        state.imageRepo!.tag = await promptForImageTag(state)
+        const imageTags = await toArrayAsync(state.ecrClient.describeTags(state.imageRepo!.repositoryName))
+        const outState = await promptForProperty(
+            state,
+            'imageRepo',
+            imageTags.map(tag => ({ label: tag, metadata: { ...state.imageRepo, tag: tag } })),
+            undefined,
+            {
+                ignoreFocusOut: true,
+                title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select an ECR tag'),
+                placeHolder: 'latest',
+            }
+        )
 
         // If this is a public image then we can skip asking for a role
-        if (state.imageRepo && state.imageRepo.repositoryUri.search(/$public.ecr.aws/) !== -1) {
-            state.isPublic = true
+        if (outState && outState.imageRepo && outState.imageRepo.repositoryUri.search(/$public.ecr.aws/) !== -1) {
+            outState.isPublic = true
         }
 
         return {
-            nextState: state.imageRepo?.tag ? state : undefined,
-            nextSteps: state.isPublic !== true ? [CreateAppRunnerServiceWizard.roleStep] : undefined,
+            nextState: outState,
+            nextSteps: outState?.isPublic !== true ? [CreateAppRunnerServiceWizard.roleStep] : undefined,
         }
     }
 
     private static portStep: StateStepFunction<CreateServiceState> = async state => {
-        state.port = await promptForPort(state)
-        return { nextState: state.port ? state : undefined }
+        const validatePort = (port: string) => {
+            if (isNaN(Number(port)) || port === '') {
+                return localize('AWS.apprunner.createService.selectPort.invalidPort', 'Port must be a number')
+            }
+
+            return undefined
+        }
+
+        const outState = await promptForPropertyInput(state, 'port', validatePort, {
+            title: localize('AWS.apprunner.createService.selectPort.title', 'Enter a port for the new service'),
+            ignoreFocusOut: true,
+            placeHolder: 'Enter a port',
+        })
+
+        return { nextState: outState }
     }
 
     private static roleStep: StateStepFunction<CreateServiceState> = async state => {
-        state.accessRole = await promptForAccessRole(state)
-        return { nextState: state.accessRole ? state : undefined }
+        // TODO: don't actually do this to filter out access roles...
+        const resp = (await state.iamClient.listRoles()).Roles.filter(role =>
+            (role.AssumeRolePolicyDocument ?? '').includes('bullet')
+        )
+        const outState = await promptForProperty(
+            state,
+            'accessRole',
+            resp.map(role => ({ label: role.RoleName, metadata: role.Arn })),
+            undefined,
+            {
+                ignoreFocusOut: true,
+                title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select ECR access role'),
+            }
+        )
+
+        return { nextState: outState }
+    }
+
+    private static buildCommandStep: StateStepFunction<CreateServiceState> = async state => {
+        const buildCommandMap = {
+            python: 'pip install -r requirements.txt',
+            node: 'npm install',
+        } as { [key: string]: string }
+        const outState = await promptForPropertyInput(state, 'buildCommand', undefined, {
+            title: localize('AWS.apprunner.createService.buildCommand.title', 'Enter a build command'),
+            ignoreFocusOut: true,
+            placeHolder:
+                buildCommandMap[
+                    Object.keys(buildCommandMap).filter(key => state.runtime!.toLowerCase().includes(key))[0]
+                ],
+        })
+
+        return { nextState: outState }
+    }
+
+    private static startCommandStep: StateStepFunction<CreateServiceState> = async state => {
+        const startCommandMap = {
+            python: 'python runapp.py',
+            node: 'node app.js',
+        } as { [key: string]: string }
+        const outState = await promptForPropertyInput(state, 'startCommand', undefined, {
+            title: localize('AWS.apprunner.createService.startCommand.title', 'Enter a start command'),
+            ignoreFocusOut: true,
+            placeHolder:
+                startCommandMap[
+                    Object.keys(startCommandMap).filter(key => state.runtime!.toLowerCase().includes(key))[0]
+                ],
+        })
+
+        return { nextState: outState }
+    }
+
+    private static instanceConfigStep: StateStepFunction<CreateServiceState> = async state => {
+        const enumerations = [
+            [1, 2],
+            [1, 3],
+            [2, 4],
+        ]
+
+        const outState = await promptForProperty(
+            state,
+            'instanceConfig',
+            enumerations.map(e => ({
+                label: `${e[0]} vCPU${e[0] > 1 ? 's' : ''}, ${e[1]} GBs Memory`,
+                metadata: { cpu: e[0], mem: e[1] },
+            })),
+            undefined,
+            {
+                ignoreFocusOut: true,
+                title: localize(
+                    'AWS.apprunner.createService.selectInstanceConfig.title',
+                    'Select instance configuration'
+                ),
+            }
+        )
+
+        return { nextState: outState }
     }
 }

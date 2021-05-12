@@ -13,9 +13,12 @@ import { ext } from '../../shared/extensionGlobals'
 import { toArrayAsync, toMap } from '../../shared/utilities/collectionUtils'
 import { CloudWatchLogsParentNode } from '../../cloudWatchLogs/explorer/cloudWatchLogsNode'
 import { CloudWatchLogs } from 'aws-sdk'
+import { StateMachineController } from '../../shared/wizards/multiStepWizard'
+import { promptForPropertyInput } from '../wizards/wizardpart2'
+import { createHelpButton } from '../../shared/ui/buttons'
 const localize = nls.loadMessageBundle()
 
-const AUTO_REFRESH_INTERVAL = 5000
+const AUTO_REFRESH_INTERVAL = 3000
 const CONTEXT_BASE = 'awsAppRunnerServiceNode'
 
 const OPERATION_STATUS: { [key: string]: string } = {
@@ -49,7 +52,9 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
     protected async getLogGroups(client: CloudWatchLogsClient): Promise<Map<string, CloudWatchLogs.LogGroup>> {
         return toMap(
             await toArrayAsync(
-                client.describeLogGroups({ logGroupNamePrefix: `/aws/apprunner/${this.info.ServiceName}/` })
+                client.describeLogGroups({
+                    logGroupNamePrefix: `/aws/apprunner/${this.info.ServiceName}/${this.info.ServiceId}`,
+                })
             ),
             configuration => configuration.logGroupName
         )
@@ -67,21 +72,30 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
             clearTimeout(this.refreshTimer)
         }
 
+        const lastLabel = this.label
         this.info = Object.assign(this.info, info)
         this.contextValue = `${CONTEXT_BASE}.${this.info.Status}`
         this.setLabel()
 
-        this.refresh()
+        if (this.label !== lastLabel) {
+            this.refresh()
+        }
+
+        if (this.info.Status === 'DELETED') {
+            this.parent.deleteNode(this.info.ServiceId)
+            this.parent.refresh()
+        }
 
         if (this.currentOperation.Id) {
-            this.refreshTimer = setTimeout(async () => {
-                this.currentOperation = this.info.Status === 'OPERATION_IN_PROGRESS' ? this.currentOperation : {}
-                this.update(
-                    (await this.client.describeService({ ServiceArn: this.info.ServiceArn })).DescribeServiceResult
-                        .Service
-                )
-            }, AUTO_REFRESH_INTERVAL)
+            this.refreshTimer = setTimeout(async () => this.poll(), AUTO_REFRESH_INTERVAL)
         }
+    }
+
+    private async poll(): Promise<void> {
+        this.currentOperation = this.info.Status === 'OPERATION_IN_PROGRESS' ? this.currentOperation : {}
+        this.update(
+            (await this.client.describeService({ ServiceArn: this.info.ServiceArn })).DescribeServiceResult.Service
+        )
     }
 
     public async pause(): Promise<void> {
@@ -111,13 +125,35 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
 
     public async delete(): Promise<void> {
         try {
-            const resp = await this.client.deleteService({ ServiceArn: this.info.ServiceArn })
-            this.currentOperation.Id = resp.DeleteServiceResult.OperationId
+            const test = new StateMachineController<{ valid: string }, boolean>(state => state.valid === 'delete')
+
+            const validateName = (name: string) => {
+                if (name !== 'delete') {
+                    return localize('AWS.apprunner.deleteService.name.invalid', "Type 'delete'")
+                }
+
+                return undefined
+            }
+
+            test.addStep(async (state: any) => {
+                state.helpButton = createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation'))
+                const outState = await promptForPropertyInput(state, 'valid', validateName, {
+                    title: localize('AWS.apprunner.deleteService.name.title', 'Delete App Runner service'),
+                    ignoreFocusOut: true,
+                    placeHolder: "Type 'delete' to delete the service",
+                })
+
+                return { nextState: outState }
+            })
+
+            if (await test.run()) {
+                const resp = await this.client.deleteService({ ServiceArn: this.info.ServiceArn })
+                this.currentOperation.Id = resp.DeleteServiceResult.OperationId
+                await new Promise(r => setTimeout(r, 5000))
+            }
         } catch (e) {
             console.log(e)
         }
         this.update({})
-        // Node will disappear after 2 seconds
-        setTimeout(() => this.parent.refresh(), 2000)
     }
 }

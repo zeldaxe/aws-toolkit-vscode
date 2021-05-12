@@ -58,9 +58,7 @@ export class AppRunnerNode extends AWSTreeNodeBase {
         for await (const list of iterator) {
             await Promise.all(
                 list.ServiceSummaryList.map(summary => summary as AppRunner.Service).map(async summary => {
-                    if (summary.Status === 'DELETED') {
-                        this.serviceNodes.delete(summary.ServiceId)
-                    } else if (this.serviceNodes.has(summary.ServiceId)) {
+                    if (this.serviceNodes.has(summary.ServiceId)) {
                         this.serviceNodes.get(summary.ServiceId)!.update(summary)
                     } else {
                         // Get top-level operation (always the first element)
@@ -75,6 +73,12 @@ export class AppRunnerNode extends AWSTreeNodeBase {
                     }
                 })
             )
+        }
+    }
+
+    public deleteNode(id: string): void {
+        if (this.serviceNodes.has(id)) {
+            this.serviceNodes.delete(id)
         }
     }
 
