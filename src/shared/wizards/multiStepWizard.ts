@@ -8,7 +8,7 @@ const localize = nls.loadMessageBundle()
 
 import * as os from 'os'
 import * as vscode from 'vscode'
-
+import * as _ from 'lodash'
 import * as picker from '../../shared/ui/picker'
 import { addCodiconToString } from '../utilities/textUtilities'
 import { getLogger } from '../logger/logger'
@@ -230,15 +230,11 @@ export interface StateMacineStep<TState> {
     nextSteps?: StateStepFunction<TState>[]
 }
 
-// TODO: assign counter as non-enumerable and private
 type StepCache = { [key: string]: any }
 
 export interface ExtendedMachineState {
     currentStep: number
     totalSteps: number
-    /** Errors are injected into the current state if the next state failed */
-    /** This essentially allows steps to communicate to previous steps */
-    error?: Error
     /**
      * Persistent information that exists on a per-step basis
      * This should not be used for determining state transitions as it would violate
@@ -258,12 +254,13 @@ export type MachineState<TState> = TState & ExtendedMachineState
  */
 export class StateMachineController<TState, TResult> {
     private previousStates: MachineState<TState>[] = []
-    private futureStateCache: WeakMap<StateStepFunction<MachineState<TState>>, StepCache | undefined> = new WeakMap()
+    private stepCaches: WeakMap<StateStepFunction<MachineState<TState>>, StepCache | undefined> = new WeakMap()
     private extraSteps = new Map<number, StateBranch<TState>>()
     private steps: StateBranch<TState> = []
-    private internalStep = 0
+    private internalStep: number = 0
     private state!: MachineState<TState>
     private finalState: MachineState<TState> | undefined
+    private machineResets: (() => void)[] = []
 
     public constructor(
         private outputResult: (state: MachineState<TState>) => TResult,
@@ -281,13 +278,16 @@ export class StateMachineController<TState, TResult> {
         this.state.totalSteps = (this.steps.length ?? 0) + (this.state.totalSteps ?? 0)
     }
 
+    /**
+     * Resets state so the controller can be resused.
+     */
     public reset() {
-        // Clean up state so the wizard can be reused
         this.state = this.previousStates[0]
         this.previousStates = this.previousStates.slice(0, 1)
         this.internalStep = 0
         this.extraSteps.clear()
-        this.futureStateCache = new WeakMap()
+        this.stepCaches = new WeakMap()
+        this.machineResets.map(f => f())
     }
 
     public addStep(step: StateStepFunction<MachineState<TState>>): void
@@ -332,6 +332,7 @@ export class StateMachineController<TState, TResult> {
                     return { nextState: undefined }
                 }
             })
+            this.machineResets.push(() => step.reset())
         } else {
             throw Error('Invalid state machine step')
         }
@@ -339,7 +340,7 @@ export class StateMachineController<TState, TResult> {
     }
 
     public getFinalState(): MachineState<TState> | undefined {
-        return this.finalState ? { ...this.finalState } : undefined
+        return this.finalState ? _.cloneDeep(this.finalState) : undefined
     }
 
     public rollback(): void {
@@ -357,11 +358,25 @@ export class StateMachineController<TState, TResult> {
     }
 
     /**
+     * Adds new steps to the state machine controller
+     */
+    private dynamicBranch(nextSteps: StateBranch<TState> | undefined): void {
+        if (nextSteps !== undefined && nextSteps.length > 0) {
+            if (nextSteps.filter(step => this.stepCaches.has(step)).length !== 0) {
+                throw Error('Cycle detected in state machine conroller')
+            }
+            this.steps.splice(this.internalStep, 0, ...nextSteps)
+            this.extraSteps.set(this.internalStep, nextSteps)
+            this.state.totalSteps += nextSteps.length
+        }
+    }
+
+    /**
      * Runs the added steps until termination or failure
      */
     public async run(): Promise<TResult | undefined> {
         if (this.previousStates.length === 0) {
-            this.previousStates.push({ ...this.state })
+            this.previousStates.push(_.cloneDeep(this.state))
         }
         this.finalState = undefined
 
@@ -376,35 +391,26 @@ export class StateMachineController<TState, TResult> {
 
                     this.rollback()
                 } else {
-                    if (stepOutput.nextState.error !== undefined) {
-                        throw stepOutput.nextState.error
-                    }
-
-                    this.futureStateCache.set(this.steps[this.internalStep], this.state.stepCache)
-                    this.previousStates.push({ ...stepOutput.nextState })
+                    this.stepCaches.set(this.steps[this.internalStep], this.state.stepCache)
+                    this.previousStates.push(_.cloneDeep(stepOutput.nextState))
                     this.state = stepOutput.nextState
                     this.state.stepCache = undefined
                     this.internalStep += 1
                     this.state.currentStep += 1
 
-                    if (stepOutput.nextSteps !== undefined && stepOutput.nextSteps.length > 0) {
-                        this.steps.splice(this.internalStep, 0, ...stepOutput.nextSteps)
-                        this.extraSteps.set(this.internalStep, stepOutput.nextSteps)
-                        this.state.totalSteps += stepOutput.nextSteps.length
-                    }
+                    this.dynamicBranch(stepOutput.nextSteps)
 
                     if (this.options.disableFutureMemory !== true) {
                         // future cache
-                        this.state.stepCache = this.futureStateCache.get(this.steps[this.internalStep])
+                        this.state.stepCache = this.stepCaches.get(this.steps[this.internalStep])
                     }
                 }
             } catch (err) {
-                if (this.state.error !== undefined) {
-                    this.state.error = err
-                } else {
-                    getLogger().debug('state machine controller: terminated due to unhandled exception %O', err)
-                    throw { message: err.message, stack: err.stack, state: (err.state ?? []).concat([this.state]) }
-                }
+                getLogger().debug(
+                    'state machine controller: terminated due to unhandled exception with current state %O',
+                    this.state
+                )
+                throw err
             }
         }
 
