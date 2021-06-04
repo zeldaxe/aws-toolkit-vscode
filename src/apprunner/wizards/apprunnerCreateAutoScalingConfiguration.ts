@@ -7,7 +7,7 @@ import { ExtendedMachineState, MachineState, StateMachineController } from '../.
 import * as vscode from 'vscode'
 import * as AppRunner from '../models/apprunner'
 import { createHelpButton } from '../../shared/ui/buttons'
-import { promptForPropertyWithInputBox } from './wizardpart2'
+import { this.context.promptWithInputBox } from './wizardpart2'
 
 const localize = nls.loadMessageBundle()
 
@@ -50,31 +50,31 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
                 return undefined
             }
 
-            const outState = await promptForPropertyWithInputBox(state, 'name', validateName, {
+            const response = await this.context.promptWithInputBox('name', validateName, {
                 title: localize('AWS.apprunner.createService.name.title', 'Name your config'),
                 ignoreFocusOut: true,
             })
-            return { nextState: outState }
+            return { nextState: state }
         })
 
         this.addStep(async state => {
-            const outState = await promptForPropertyWithInputBox(state, 'maxConcurrency', minValue, {
+            const response = await this.context.promptWithInputBox('maxConcurrency', minValue, {
                 title: localize('AWS.apprunner.createService.name.title', 'Enter max concurrency'),
                 ignoreFocusOut: true,
             })
-            return { nextState: outState }
+            return { nextState: state }
         })
 
         this.addStep(async state => {
-            const outState = await promptForPropertyWithInputBox(state, 'maxInstances', minValue, {
+            const response = await this.context.promptWithInputBox('maxInstances', minValue, {
                 title: localize('AWS.apprunner.createService.name.title', 'Name your config'),
                 ignoreFocusOut: true,
             })
-            return { nextState: outState }
+            return { nextState: state }
         })
 
         this.addStep(async state => {
-            const outState = await promptForPropertyWithInputBox(
+            const response = await this.context.promptWithInputBox(
                 state,
                 'minInstances',
                 v => minValue(v, state.maxInstances),
@@ -83,7 +83,7 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
                     ignoreFocusOut: true,
                 }
             )
-            return { nextState: outState }
+            return { nextState: state }
         })
     }
 

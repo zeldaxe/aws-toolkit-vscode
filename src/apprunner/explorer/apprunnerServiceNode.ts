@@ -14,7 +14,7 @@ import { toArrayAsync, toMap } from '../../shared/utilities/collectionUtils'
 import { CloudWatchLogsParentNode } from '../../cloudWatchLogs/explorer/cloudWatchLogsNode'
 import { CloudWatchLogs } from 'aws-sdk'
 import { StateMachineController } from '../../shared/wizards/multiStepWizard'
-import { promptForPropertyWithInputBox } from '../wizards/wizardpart2'
+import { this.context.promptWithInputBox } from '../wizards/wizardpart2'
 import { createHelpButton } from '../../shared/ui/buttons'
 const localize = nls.loadMessageBundle()
 
@@ -137,13 +137,13 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
             // *** TODO: CODE NOT FOR PROD ***
             test.addStep(async (state: any) => {
                 state.helpButton = createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation'))
-                const outState = await promptForPropertyWithInputBox(state, 'valid', validateName, {
+                const response = await this.context.promptWithInputBox('valid', validateName, {
                     title: localize('AWS.apprunner.deleteService.name.title', 'Delete App Runner service'),
                     ignoreFocusOut: true,
                     placeHolder: "Type 'delete' to delete the service",
                 })
 
-                return { nextState: outState }
+                return { nextState: state }
             })
 
             if (await test.run()) {

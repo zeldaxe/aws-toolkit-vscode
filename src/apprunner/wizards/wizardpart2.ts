@@ -5,12 +5,6 @@
 
 import * as vscode from 'vscode'
 import {
-    ExtendedMachineState,
-    MachineState,
-    StateMachineController,
-    StateStepFunction,
-} from '../../shared/wizards/multiStepWizard'
-import {
     createQuickPick,
     CUSTOM_USER_INPUT,
     ExtendedQuickPickOptions,
@@ -20,13 +14,15 @@ import {
 import * as AppRunner from '../models/apprunner'
 import * as nls from 'vscode-nls'
 import { createHelpButton } from '../../shared/ui/buttons'
-import * as input from '../../shared/ui/input'
 import { ext } from '../../shared/extensionGlobals'
 import { IamClient } from '../../shared/clients/iamClient'
 import { Remote, Branch } from '../../../types/git'
 import { getRemotes, getApiForGit, getBranchesForRemote } from '../../shared/utilities/gitUtils'
 import { toArrayAsync } from '../../shared/utilities/collectionUtils'
 import { EcrClient, EcrRepository } from '../../shared/clients/ecrClient'
+import { StateMachineController, StateStepFunction } from '../../shared/wizards/stateController'
+import * as input from '../../shared/ui/input'
+import * as _ from 'lodash'
 
 const localize = nls.loadMessageBundle()
 
@@ -37,15 +33,15 @@ type AppRunnerSourceType = 'ECR' | 'ECR-Public' | 'Repository' | 'API'
 type AppRunnerRuntime = 'PYTHON_3' | 'NODEJS_12'
 type TaggedEcrRepository = EcrRepository & { tag?: string }
 
-type MetadataQuickPickItem<T> = vscode.QuickPickItem & { metadata: T }
 // The state machine controller currently only makes shallow copies of states, so having state fields be top-level
 // is preferred to perserve immutability of states.
 // TODO: it may be better to map state 1:1 (or as close as possible) to the output type
 // Note: recursively determining types using the Typescript compiler was too slow to be usable
 // because of this, it might be better to just stick with the flat state structure.
 // modularity can be created by breaking up the state types into mutliple logical chunks
-type CreateServiceState = MachineState<{
-    //picked?: MetadataQuickPickItem<any>[]
+
+type CreateServiceState = {
+    lastPicked?: any
     name?: string
     source?: AppRunnerSourceType
     imageRepo?: TaggedEcrRepository
@@ -58,137 +54,139 @@ type CreateServiceState = MachineState<{
     startCommand?: string
     isPublic?: boolean
     instanceConfig?: { cpu: number; mem: number }
-    iamClient: IamClient
-    ecrClient: EcrClient
-    helpButton: vscode.QuickInputButton
-}>
-// mutates a state's property
-//
-// TODO: add capacity for default
-// need to differentiate between user hitting enter with no defined quick pick versus back button
-// technically can support multiple selections if the state property takes an array
-// TODO: picked data needs to be scrubbed upon reaching a new state (have step-specific state information??)
-async function promptForProperty<TState extends ExtendedMachineState & { helpButton: vscode.QuickInputButton }, TProp>(
-    state: TState,
-    property: keyof TState,
-    items?: MetadataQuickPickItem<TProp>[],
-    transformUserInput?: (input?: string) => TProp,
-    options?: ExtendedQuickPickOptions
-): Promise<TState | undefined> {
-    const picked: MetadataQuickPickItem<any>[] = state.stepCache ? state.stepCache.picked : undefined
-    const isUserInput = picked && picked[0].metadata === CUSTOM_USER_INPUT
-
-    // TODO: undefined items will be inferred as a quick input by convention
-
-    const quickPick = createQuickPick<MetadataQuickPickItem<TProp | symbol>>({
-        options: {
-            value: isUserInput ? picked[0].description! : undefined,
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-            ...options,
-        },
-        buttons: [state.helpButton, vscode.QuickInputButtons.Back],
-        items: items,
-    })
-
-    if (!isUserInput && items) {
-        quickPick.activeItems = items.filter(item => picked?.map(item => item.label).includes(item.label))
-
-        if (quickPick.activeItems.length === 0) {
-            quickPick.activeItems = [quickPick.items[0]]
-        }
-    }
-
-    const choices = await promptUser({
-        picker: quickPick,
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            } else if (button === state.helpButton) {
-                // TODO: add URL option
-                vscode.env.openExternal(vscode.Uri.parse('https://github.com/aws/aws-toolkit-vscode'))
-            }
-        },
-    })
-
-    const choice = verifySinglePickerOutput(choices)
-    if (choice !== undefined) {
-        state.stepCache = { picked: [choice] }
-        if (transformUserInput && choice.metadata === CUSTOM_USER_INPUT) {
-            Object.defineProperty(state, property, {
-                value: transformUserInput(choice.description),
-                enumerable: true,
-                configurable: true,
-            })
-        } else {
-            Object.defineProperty(state, property, { value: choice.metadata, enumerable: true, configurable: true })
-        }
-    }
-
-    return choice ? state : undefined
 }
 
-export async function promptForPropertyWithInputBox<
-    TState extends ExtendedMachineState & { helpButton: vscode.QuickInputButton }
->(
-    state: TState,
-    property: keyof TState,
-    onValidateInput?: (value: string) => string | undefined,
-    options?: input.ExtendedInputBoxOptions
-): Promise<TState | undefined> {
-    const picked: MetadataQuickPickItem<any>[] = state.stepCache ? state.stepCache.picked : undefined
+type DataQuickPickItem<T> = vscode.QuickPickItem & { data: T }
+interface CreateAppRunnerServiceContext {
+    readonly region: string,
+    readonly iamClient: IamClient,
+    readonly ecrClient: EcrClient,
 
-    const inputBox = input.createInputBox({
-        options: {
-            value: picked ? picked[0].label : undefined,
-            step: state.currentStep,
-            totalSteps: state.totalSteps,
-            ...options,
-        },
-        buttons: [state.helpButton, vscode.QuickInputButtons.Back],
-    })
+    promptWithQuickPick<T>(
+        items?: DataQuickPickItem<T>[],
+        lastPicked?: DataQuickPickItem<T | symbol>,
+        options?: ExtendedQuickPickOptions,
+    ): Promise<DataQuickPickItem<T | symbol> | undefined>
 
-    const userInput = await input.promptUser({
-        inputBox: inputBox,
-        onValidateInput: onValidateInput,
-        onDidTriggerButton: (button, resolve, reject) => {
-            if (button === vscode.QuickInputButtons.Back) {
-                resolve(undefined)
-            } else if (button === state.helpButton) {
-                // TODO: add URL
-                vscode.env.openExternal(vscode.Uri.parse(''))
-            }
-        },
-    })
-
-    if (userInput !== undefined) {
-        state.stepCache = { picked: [{ label: userInput }] }
-        Object.defineProperty(state, property, { value: userInput, enumerable: true, configurable: true })
-    }
-
-    return userInput ? state : undefined
+    promptWithInputBox(
+        lastInput?: string,
+        onValidateInput?: (input: string) => string | undefined,
+        options?: input.ExtendedInputBoxOptions,
+    ): Promise<string | undefined>
 }
 
-export class CreateAppRunnerServiceWizard extends StateMachineController<
-    Omit<CreateServiceState, keyof ExtendedMachineState>,
-    AppRunner.CreateServiceRequest
-> {
-    public constructor(private readonly defaultRegion: string) {
-        super(state => CreateAppRunnerServiceWizard.stateToResult(state), {
-            initState: {
-                iamClient: ext.toolkitClientBuilder.createIamClient(defaultRegion),
-                ecrClient: ext.toolkitClientBuilder.createEcrClient(defaultRegion),
-                helpButton: createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation')),
+class DefaultCreateAppRunnerServiceContext {
+    private readonly helpButton = createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation'))
+    public readonly iamClient: IamClient
+    public readonly ecrClient: EcrClient
+
+    constructor(public readonly region: string) {
+        this.iamClient = ext.toolkitClientBuilder.createIamClient(region)
+        this.ecrClient = ext.toolkitClientBuilder.createEcrClient(region)
+    }
+
+    public async promptWithQuickPick<T>(
+        items?: DataQuickPickItem<T>[],
+        lastPicked?: DataQuickPickItem<T | symbol>,
+        options?: ExtendedQuickPickOptions,
+    ): Promise<DataQuickPickItem<T | symbol> | undefined> {
+        const lastPickedIsUserInput = lastPicked !== undefined && lastPicked.data === CUSTOM_USER_INPUT
+    
+        // TODO: undefined items will be inferred as a quick input by convention
+    
+        const quickPick = createQuickPick({
+            options: {
+                value: lastPickedIsUserInput ? lastPicked!.description! : undefined,
+                ...options,
+            },
+            buttons: [this.helpButton, vscode.QuickInputButtons.Back],
+            items: items,
+        })
+    
+        if (!lastPickedIsUserInput && items !== undefined) {
+            quickPick.activeItems = items.filter(item => lastPicked!.label.includes(item.label))
+    
+            if (quickPick.activeItems.length === 0) {
+                quickPick.activeItems = [quickPick.items[0]]
+            }
+        }
+    
+        const choices = await promptUser({
+            picker: quickPick,
+            onDidTriggerButton: (button, resolve, reject) => {
+                if (button === vscode.QuickInputButtons.Back) {
+                    resolve(undefined)
+                } else if (button === this.helpButton) {
+                    // TODO: add URL option
+                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/aws/aws-toolkit-vscode'))
+                }
             },
         })
-        this.addStep(CreateAppRunnerServiceWizard.nameStep)
-        this.addStep(CreateAppRunnerServiceWizard.sourceStep)
-        this.addStep(CreateAppRunnerServiceWizard.portStep)
-        this.addStep(CreateAppRunnerServiceWizard.instanceConfigStep)
+    
+        /*
+        if (choice !== undefined) {
+            state.stepCache = { picked: [choice] }
+            if (transformUserInput && choice.metadata === CUSTOM_USER_INPUT) {
+                Object.defineProperty(state, property, {
+                    value: transformUserInput(choice.description),
+                    enumerable: true,
+                    configurable: true,
+                })
+            } else {
+                Object.defineProperty(state, property, { value: choice.metadata, enumerable: true, configurable: true })
+            }
+        }
+        */
+    
+        return verifySinglePickerOutput(choices)
+    }
+
+    public async promptWithInputBox(
+        lastInput?: string,
+        onValidateInput?: (input: string) => string | undefined,
+        options?: input.ExtendedInputBoxOptions,
+    ): Promise<string | undefined> {
+        const inputBox = input.createInputBox({ options })
+        inputBox.value = lastInput ?? ''
+
+        const userInput = await input.promptUser({
+            inputBox: inputBox,
+            onValidateInput: onValidateInput,
+            onDidTriggerButton: (button, resolve, reject) => {
+                if (button === vscode.QuickInputButtons.Back) {
+                    resolve(undefined)
+                } else if (button === this.helpButton) {
+                    // TODO: add URL
+                    vscode.env.openExternal(vscode.Uri.parse(''))
+                }
+            },
+        })
+    
+        return userInput
+    }
+}
+
+export class CreateAppRunnerServiceWizard {
+    private readonly controller = new StateMachineController<CreateServiceState>()
+
+    public constructor(
+        private readonly region: string, 
+        private readonly context: CreateAppRunnerServiceContext = new DefaultCreateAppRunnerServiceContext(region)
+    ) {
+        this.controller.addStep(this.nameStep)
+        this.controller.addStep(this.sourceStep)
+        this.controller.addStep(this.portStep)
+        this.controller.addStep(this.instanceConfigStep)
+    }
+
+    public async run(): Promise<AppRunner.CreateServiceRequest | undefined> {
+        const response = await this.controller.run()
+
+        return response !== undefined ? this.stateToResult(response) : undefined
     }
 
     // TODO: verify that these things are actually defined...
-    private static stateToResult(state: CreateServiceState): AppRunner.CreateServiceRequest {
+    private stateToResult(state: CreateServiceState): AppRunner.CreateServiceRequest {
         const result: AppRunner.CreateServiceRequest = {
             ServiceName: state.name!,
             InstanceConfiguration: {
@@ -240,10 +238,11 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             },
         }
 
+        // Removes any undefined properties
         return JSON.parse(JSON.stringify(result))
     }
 
-    private static nameStep: StateStepFunction<CreateServiceState> = async state => {
+    private nameStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const validateName = (name: string) => {
             if (!name || name.length < 4) {
                 return localize(
@@ -255,48 +254,46 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             return undefined
         }
 
-        const outState = await promptForPropertyWithInputBox(state, 'name', validateName, {
+        const response = await this.context.promptWithInputBox(state.lastPicked, validateName, {
             title: localize('AWS.apprunner.createService.name.title', 'Name your service'),
             ignoreFocusOut: true,
+            step: this.controller.currentStep,
+            totalSteps: this.controller.totalSteps,
         })
-        return { nextState: outState }
+
+        state.name = response
+
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static sourceStep: StateStepFunction<CreateServiceState> = async state => {
+    private sourceStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         //state.source = await promptForSourceType(state)
-        const outState = await promptForProperty(
-            state,
-            'source',
+        const response = await this.context.promptWithQuickPick(
             [
-                { label: 'ECR', metadata: 'ECR' },
+                { label: 'ECR', data: 'ECR' },
                 //{ label: 'Public ECR', sourceType: 'ECR-Public' },
-                { label: 'Repository', metadata: 'Repository' },
+                { label: 'Repository', data: 'Repository' },
             ],
-            undefined,
+            state.lastPicked,
             {
                 ignoreFocusOut: true,
                 title: localize('AWS.apprunner.createService.sourceType.title', 'Select source code location type'),
             }
         )
 
+        state.source = response?.data as AppRunnerSourceType
+
         return {
-            nextState: outState,
-            nextSteps: outState
-                ? outState.source === 'Repository'
-                    ? [CreateAppRunnerServiceWizard.repoStep]
-                    : [CreateAppRunnerServiceWizard.imageStep]
-                : [],
+            nextState: state.source !== undefined ? state : undefined,
+            nextSteps: state.source === 'Repository' ? [this.repoStep] : [this.imageStep]
         }
     }
 
-    private static repoStep: StateStepFunction<CreateServiceState> = async state => {
+    private repoStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const remotes = getRemotes(await getApiForGit())
-        const outState = await promptForProperty(
-            state,
-            'repository',
-            remotes.map((remote: any) => ({ label: remote.name, detail: remote.fetchUrl, metadata: remote })),
-            (input?: string) =>
-                input ? ({ name: 'UserRemote', isReadOnly: true, fetchUrl: input } as Remote) : undefined,
+        const response = await this.context.promptWithQuickPick(
+            remotes.map((remote: any) => ({ label: remote.name, detail: remote.fetchUrl, data: remote })),
+            state.lastPicked,
             {
                 ignoreFocusOut: true,
                 title: localize(
@@ -308,77 +305,78 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
                     'Select a remote repository or enter a URL'
                 ),
                 customUserInputLabel: 'GitHub URL',
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
 
+        if (response?.data === CUSTOM_USER_INPUT) {
+            state.repository = ({ name: 'UserRemote', isReadOnly: true, fetchUrl: response!.description } as Remote)
+        } else {
+            state.repository = response?.data
+        }
+
         return {
-            nextState: outState,
+            nextState: state.repository !== undefined ? state : undefined,
             nextSteps: [
-                CreateAppRunnerServiceWizard.branchStep,
-                CreateAppRunnerServiceWizard.runtimeStep,
-                CreateAppRunnerServiceWizard.buildCommandStep,
-                CreateAppRunnerServiceWizard.startCommandStep,
+                this.branchStep,
+                this.runtimeStep,
+                this.buildCommandStep,
+                this.startCommandStep
             ],
         }
     }
 
-    private static branchStep: StateStepFunction<CreateServiceState> = async state => {
+    private branchStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const branches = await getBranchesForRemote(await getApiForGit(), state.repository!)
-        const outState = await promptForProperty(
-            state,
-            'branch',
+        const response = await this.context.promptWithQuickPick(
             branches
                 .filter(b => b.name !== '')
                 .map((branch: any) => ({
                     label: branch.name.replace(state.repository!.name + '/', ''),
-                    metadata: branch,
+                    data:branch,
                 })),
-            undefined,
+            state.lastPicked,
             {
                 ignoreFocusOut: true,
                 title: localize('AWS.apprunner.createService.selectBranch.title', 'Select a branch'),
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
-        return { nextState: outState }
+
+        state.branch = response?.data as Branch
+
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static runtimeStep: StateStepFunction<CreateServiceState> = async state => {
-        const outState = await promptForProperty(
-            state,
-            'runtime',
+    private runtimeStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
+        const response = await this.context.promptWithQuickPick(
             [
                 // labels and runtimes are separate in case we want the user-facing name to be different
-                { label: 'python3', metadata: 'PYTHON_3' },
+                { label: 'python3', data:'PYTHON_3' },
                 //{ label: 'nodejs10', runtime: 'nodejs10' },
-                { label: 'nodejs12', metadata: 'NODEJS_12' },
+                { label: 'nodejs12', data:'NODEJS_12' },
             ],
-            undefined,
+            state.lastPicked,
             {
                 ignoreFocusOut: true,
                 title: localize('AWS.apprunner.createService.selectRuntime.title', 'Select a runtime'),
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
 
-        return { nextState: outState }
+        state.runtime = response?.data as AppRunnerRuntime
+
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static imageStep: StateStepFunction<CreateServiceState> = async state => {
-        const imageRepos = await toArrayAsync(state.ecrClient.describeRepositories())
-        const outState = await promptForProperty(
-            state,
-            'imageRepo',
-            imageRepos.map(repo => ({ label: repo.repositoryName, detail: repo.repositoryUri, metadata: repo })),
-            (input: string = '') => {
-                const userInputParts = input.split(':')
-                return userInputParts.length === 2
-                    ? {
-                          repositoryArn: '',
-                          repositoryName: 'UserDefined',
-                          repositoryUri: userInputParts[0],
-                          tag: userInputParts[1],
-                      }
-                    : undefined
-            },
+    private imageStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
+        const imageRepos = await toArrayAsync(this.context.ecrClient.describeRepositories())
+        const response = await this.context.promptWithQuickPick(
+            imageRepos.map(repo => ({ label: repo.repositoryName, detail: repo.repositoryUri, data: repo })),
+            state.lastPicked,
             {
                 ignoreFocusOut: true,
                 title: localize(
@@ -387,41 +385,59 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
                 ),
                 placeHolder: '111111111111.dkr.ecr.us-east-1.amazonaws.com/myrepo:latest',
                 customUserInputLabel: 'Custom ECR URL',
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
 
+        if (response?.data === CUSTOM_USER_INPUT) {
+            const userInputParts = response!.description!.split(':')
+            state.imageRepo = userInputParts.length === 2
+                ? {
+                    repositoryArn: '',
+                    repositoryName: 'UserDefined',
+                    repositoryUri: userInputParts[0],
+                    tag: userInputParts[1],
+                }
+                : undefined // Add retry here
+        } else {
+            state.imageRepo = response?.data as TaggedEcrRepository
+        }
+
         return {
-            nextState: outState,
-            nextSteps: outState?.imageRepo?.tag ? undefined : [CreateAppRunnerServiceWizard.tagStep],
+            nextState: response !== undefined ? state : undefined,
+            nextSteps: state?.imageRepo?.tag ? undefined : [this.tagStep],
         }
     }
 
-    private static tagStep: StateStepFunction<CreateServiceState> = async state => {
-        const imageTags = await toArrayAsync(state.ecrClient.describeTags(state.imageRepo!.repositoryName))
-        const outState = await promptForProperty(
-            state,
-            'imageRepo',
-            imageTags.map(tag => ({ label: tag, metadata: { ...state.imageRepo, tag: tag } })),
+    private tagStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
+        const imageTags = await toArrayAsync(this.context.ecrClient.describeTags(state.imageRepo!.repositoryName))
+        const response = await this.context.promptWithQuickPick(
+            imageTags.map(tag => ({ label: tag, data: { ...state.imageRepo, tag: tag } })),
             undefined,
             {
                 ignoreFocusOut: true,
                 title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select an ECR tag'),
                 placeHolder: 'latest',
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
 
+        state.imageRepo = response?.data as EcrRepository
+
         // If this is a public image then we can skip asking for a role
-        if (outState && outState.imageRepo && outState.imageRepo.repositoryUri.search(/$public.ecr.aws/) !== -1) {
-            outState.isPublic = true
+        if (state.imageRepo !== undefined && state.imageRepo.repositoryUri.search(/$public.ecr.aws/) !== -1) {
+            state.isPublic = true
         }
 
         return {
-            nextState: outState,
-            nextSteps: outState?.isPublic !== true ? [CreateAppRunnerServiceWizard.roleStep] : undefined,
+            nextState: response !== undefined ? state : undefined,
+            nextSteps: state.isPublic !== true ? [this.roleStep] : undefined,
         }
     }
 
-    private static portStep: StateStepFunction<CreateServiceState> = async state => {
+    private portStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const validatePort = (port: string) => {
             if (isNaN(Number(port)) || port === '') {
                 return localize('AWS.apprunner.createService.selectPort.invalidPort', 'Port must be a number')
@@ -430,81 +446,92 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
             return undefined
         }
 
-        const outState = await promptForPropertyWithInputBox(state, 'port', validatePort, {
+        const response = await this.context.promptWithInputBox(state.lastPicked, validatePort, {
             title: localize('AWS.apprunner.createService.selectPort.title', 'Enter a port for the new service'),
             ignoreFocusOut: true,
             placeHolder: 'Enter a port',
+            step: this.controller.currentStep,
+            totalSteps: this.controller.totalSteps,
         })
 
-        return { nextState: outState }
+        state.port = response
+
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static roleStep: StateStepFunction<CreateServiceState> = async state => {
+    private roleStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         // TODO: don't actually do this to filter out access roles...
-        const resp = (await state.iamClient.listRoles()).Roles.filter(role =>
+        const resp = (await this.context.iamClient.listRoles()).Roles.filter(role =>
             (role.AssumeRolePolicyDocument ?? '').includes('bullet')
         )
-        const outState = await promptForProperty(
-            state,
-            'accessRole',
-            resp.map(role => ({ label: role.RoleName, metadata: role.Arn })),
-            undefined,
+        const response = await this.context.promptWithQuickPick(
+            resp.map(role => ({ label: role.RoleName, data: role.Arn })),
+            state.lastPicked,
             {
                 ignoreFocusOut: true,
                 title: localize('AWS.apprunner.createService.selectAccessRole.title', 'Select ECR access role'),
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
 
-        return { nextState: outState }
+        state.accessRole = response?.data as string
+
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static buildCommandStep: StateStepFunction<CreateServiceState> = async state => {
+    private buildCommandStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const buildCommandMap = {
             python: 'pip install -r requirements.txt',
             node: 'npm install',
         } as { [key: string]: string }
-        const outState = await promptForPropertyWithInputBox(state, 'buildCommand', undefined, {
+        const response = await this.context.promptWithInputBox(state.lastPicked, undefined, {
             title: localize('AWS.apprunner.createService.buildCommand.title', 'Enter a build command'),
             ignoreFocusOut: true,
             placeHolder:
                 buildCommandMap[
                     Object.keys(buildCommandMap).filter(key => state.runtime!.toLowerCase().includes(key))[0]
                 ],
+            step: this.controller.currentStep,
+            totalSteps: this.controller.totalSteps,
         })
 
-        return { nextState: outState }
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static startCommandStep: StateStepFunction<CreateServiceState> = async state => {
+    private startCommandStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const startCommandMap = {
             python: 'python runapp.py',
             node: 'node app.js',
         } as { [key: string]: string }
-        const outState = await promptForPropertyWithInputBox(state, 'startCommand', undefined, {
+
+        const response = await this.context.promptWithInputBox(state.lastPicked, undefined, {
             title: localize('AWS.apprunner.createService.startCommand.title', 'Enter a start command'),
             ignoreFocusOut: true,
             placeHolder:
                 startCommandMap[
                     Object.keys(startCommandMap).filter(key => state.runtime!.toLowerCase().includes(key))[0]
                 ],
+            step: this.controller.currentStep,
+            totalSteps: this.controller.totalSteps,
         })
 
-        return { nextState: outState }
+        state.startCommand = response
+
+        return { nextState: response !== undefined ? state : undefined }
     }
 
-    private static instanceConfigStep: StateStepFunction<CreateServiceState> = async state => {
+    private instanceConfigStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
         const enumerations = [
             [1, 2],
             [1, 3],
             [2, 4],
         ]
 
-        const outState = await promptForProperty(
-            state,
-            'instanceConfig',
+        const response = await this.context.promptWithQuickPick(
             enumerations.map(e => ({
                 label: `${e[0]} vCPU${e[0] > 1 ? 's' : ''}, ${e[1]} GBs Memory`,
-                metadata: { cpu: e[0], mem: e[1] },
+                data: { cpu: e[0], mem: e[1] },
             })),
             undefined,
             {
@@ -513,9 +540,13 @@ export class CreateAppRunnerServiceWizard extends StateMachineController<
                     'AWS.apprunner.createService.selectInstanceConfig.title',
                     'Select instance configuration'
                 ),
+                step: this.controller.currentStep,
+                totalSteps: this.controller.totalSteps,
             }
         )
 
-        return { nextState: outState }
+        state.instanceConfig = response?.data as { cpu: number, mem: number }
+
+        return { nextState: state.instanceConfig !== undefined ? state : undefined }
     }
 }

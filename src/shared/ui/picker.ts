@@ -19,12 +19,11 @@ export interface AdditionalQuickPickOptions {
     value?: string
     step?: number
     totalSteps?: number
-    /** User can type their own entry */
     customUserInputLabel?: string
 }
 
 export type ExtendedQuickPickOptions = vscode.QuickPickOptions & AdditionalQuickPickOptions
-export const CUSTOM_USER_INPUT = Symbol('custom quick pick')
+export const CUSTOM_USER_INPUT = Symbol()
 
 /**
  * Creates a QuickPick to let the user pick an item from a list
@@ -39,7 +38,7 @@ export const CUSTOM_USER_INPUT = Symbol('custom quick pick')
  *  buttons - set of buttons to initialize the picker with
  * @return A new QuickPick.
  */
-export function createQuickPick<T extends vscode.QuickPickItem & { metadata?: any }>({
+export function createQuickPick<T extends vscode.QuickPickItem & { data?: any }>({
     options,
     items,
     buttons,
@@ -58,7 +57,7 @@ export function createQuickPick<T extends vscode.QuickPickItem & { metadata?: an
                     label: options!.customUserInputLabel,
                     description: value,
                     alwaysShow: true,
-                    metadata: CUSTOM_USER_INPUT,
+                    data: CUSTOM_USER_INPUT,
                 } as T,
                 ...(items ?? []),
             ]
