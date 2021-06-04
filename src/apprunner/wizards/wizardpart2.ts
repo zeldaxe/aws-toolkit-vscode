@@ -123,22 +123,7 @@ class DefaultCreateAppRunnerServiceContext {
             },
         })
     
-        /*
-        if (choice !== undefined) {
-            state.stepCache = { picked: [choice] }
-            if (transformUserInput && choice.metadata === CUSTOM_USER_INPUT) {
-                Object.defineProperty(state, property, {
-                    value: transformUserInput(choice.description),
-                    enumerable: true,
-                    configurable: true,
-                })
-            } else {
-                Object.defineProperty(state, property, { value: choice.metadata, enumerable: true, configurable: true })
-            }
-        }
-        */
-    
-        return verifySinglePickerOutput(choices)
+        return choices !== undefined ? verifySinglePickerOutput(choices) : undefined
     }
 
     public async promptWithInputBox(

@@ -13,9 +13,8 @@ import { ext } from '../../shared/extensionGlobals'
 import { toArrayAsync, toMap } from '../../shared/utilities/collectionUtils'
 import { CloudWatchLogsParentNode } from '../../cloudWatchLogs/explorer/cloudWatchLogsNode'
 import { CloudWatchLogs } from 'aws-sdk'
-import { StateMachineController } from '../../shared/wizards/multiStepWizard'
-import { this.context.promptWithInputBox } from '../wizards/wizardpart2'
 import { createHelpButton } from '../../shared/ui/buttons'
+import { createInputBox, promptUser } from '../../shared/ui/input'
 const localize = nls.loadMessageBundle()
 
 const CONTEXT_BASE = 'awsAppRunnerServiceNode'
@@ -124,29 +123,32 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
 
     public async delete(): Promise<void> {
         try {
-            const test = new StateMachineController<{ valid: string }, boolean>(state => state.valid === 'delete')
-
             const validateName = (name: string) => {
                 if (name !== 'delete') {
-                    return localize('AWS.apprunner.deleteService.name.invalid', "Type 'delete'")
+                    return localize('AWS.apprunner.deleteService.name.invalid', ``)
                 }
 
                 return undefined
             }
 
-            // *** TODO: CODE NOT FOR PROD ***
-            test.addStep(async (state: any) => {
-                state.helpButton = createHelpButton(localize('AWS.command.help', 'View Toolkit Documentation'))
-                const response = await this.context.promptWithInputBox('valid', validateName, {
-                    title: localize('AWS.apprunner.deleteService.name.title', 'Delete App Runner service'),
-                    ignoreFocusOut: true,
-                    placeHolder: "Type 'delete' to delete the service",
-                })
-
-                return { nextState: state }
+            const helpButton = createHelpButton()
+            const inputBox = createInputBox({ options: {
+                title: localize('AWS.apprunner.deleteService.title', 'Delete App Runner service'),
+                placeHolder: localize('AWS.apprunner.deleteService.placeholder', `Type 'delete' to confirm`)
+            }, buttons: [helpButton]})
+    
+            const userInput = await promptUser({
+                inputBox: inputBox,
+                onValidateInput: validateName,
+                onDidTriggerButton: button => {
+                    if (button === helpButton) {
+                        // TODO: add URL to app runner docs
+                        vscode.env.openExternal(vscode.Uri.parse(''))
+                    }
+                },
             })
 
-            if (await test.run()) {
+            if (userInput !== undefined) {
                 const resp = await this.client.deleteService({ ServiceArn: this.info.ServiceArn })
                 this.currentOperation.Id = resp.DeleteServiceResult.OperationId
                 this.currentOperation.Type = 'DELETE_SERVICE'
