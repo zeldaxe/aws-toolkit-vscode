@@ -62,39 +62,6 @@ export abstract class CloudWatchLogsParentNode extends AWSTreeNodeBase {
         )
     }
 }
-
-// Creates a logical grouping of nodes
-export class FolderNode extends AWSTreeNodeBase {
-    public constructor(label: string, private readonly children: AWSTreeNodeBase[] = []) {
-        super(label, vscode.TreeItemCollapsibleState.Collapsed)
-    }
-
-    public addChild(node: AWSTreeNodeBase): void {
-        this.children.push(node)
-        this.refresh()
-    }
-
-    public removeChild(node: AWSTreeNodeBase): void {
-        const index = this.children.indexOf(node)
-        if (index !== -1) {
-            this.children.splice(index, 1)
-        }
-        this.refresh()
-    }
-
-    public async getChildren(): Promise<AWSTreeNodeBase[]> {
-        return await makeChildrenNodes({
-            getChildNodes: async () => [...this.children.values()],
-            getErrorNode: async (error: Error, logID: number) => new ErrorNode(this, error, logID),
-            getNoChildrenPlaceholderNode: async () =>
-                new PlaceholderNode(this, localize('AWS.explorerNode.folder.nochildren', 'Nothing is here...')),
-            sort: (nodeA: AWSTreeNodeBase, nodeB: AWSTreeNodeBase) =>
-                (nodeA.label ?? '').localeCompare(nodeB.label ?? ''),
-        })
-    }
-}
-
-// TODO: rename this as root node?
 export class CloudWatchLogsNode extends CloudWatchLogsParentNode {
     public constructor(regionCode: string) {
         super(

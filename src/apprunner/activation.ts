@@ -14,7 +14,13 @@ import { makeApprunnerConnectionWizard } from './wizards/apprunnerCreateConnecti
  */
 export async function activate(extensionContext: vscode.ExtensionContext): Promise<void> {
     extensionContext.subscriptions.push(
-        vscode.commands.registerCommand('aws.apprunner.createService', (node: AppRunnerNode) => node.createService()),
+        vscode.commands.registerCommand('aws.apprunner.createService', (node: AppRunnerNode) => {
+            try {
+            node.createService()
+            } catch(e) {
+                console.log(e)
+            }
+        }),
         vscode.commands.registerCommand('aws.apprunner.pauseService', (node: AppRunnerServiceNode) => node.pause()),
         vscode.commands.registerCommand('aws.apprunner.resumeService', (node: AppRunnerServiceNode) => node.resume()),
         vscode.commands.registerCommand('aws.apprunner.copyServiceUrl', (node: AppRunnerServiceNode) =>

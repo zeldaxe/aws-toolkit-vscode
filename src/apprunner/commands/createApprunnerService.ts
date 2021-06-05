@@ -6,14 +6,14 @@
 import * as vscode from 'vscode'
 import { MultiStepWizard } from '../../shared/wizards/multiStepWizard'
 import { createQuickPick, promptUser, verifySinglePickerOutput } from '../../shared/ui/picker'
-import * as AppRunner from '../models/apprunner'
+import { AppRunner } from 'aws-sdk'
 import * as nls from 'vscode-nls'
-import { CreateAppRunnerServiceWizard } from '../wizards/wizardpart2'
+import { CreateAppRunnerServiceWizard } from '../wizards/apprunnerCreateServiceWizard'
 const localize = nls.loadMessageBundle()
 
-export async function createAppRunnerService(): Promise<AppRunner.CreateServiceRequest | undefined> {
+export async function createAppRunnerService(region: string): Promise<AppRunner.CreateServiceRequest | undefined> {
     // Do all the error handling from the wizard here? this file is very empty
-    const wizard = new CreateAppRunnerServiceWizard('us-east-1')
+    const wizard = new CreateAppRunnerServiceWizard(region)
     const result = await wizard.run()
     return result
 }

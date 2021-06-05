@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode'
 import { AppRunnerClient } from '../../shared/clients/apprunnerClient'
-import * as AppRunner from '../models/apprunner'
+import { AppRunner } from 'aws-sdk'
 import { AppRunnerNode } from './apprunnerNode'
 import * as nls from 'vscode-nls'
 import { CloudWatchLogsClient } from '../../shared/clients/cloudWatchLogsClient'
@@ -32,11 +32,11 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
         public readonly parent: AppRunnerNode,
         private readonly client: AppRunnerClient,
         private info: AppRunner.Service,
-        private currentOperation: AppRunner.Operation = {}
+        private currentOperation: AppRunner.OperationSummary = {}
     ) {
         super(
             'App Runner Service',
-            'us-east-1',
+            parent.region,
             localize('AWS.explorerNode.apprunner.nologs', '[No App Runner logs found]')
         )
         this.iconPath = {
@@ -60,7 +60,7 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
     private setLabel(): void {
         const displayStatus = this.currentOperation.Type
             ? OPERATION_STATUS[this.currentOperation.Type]
-            : this.info.Status.charAt(0) + this.info.Status.slice(1).toLowerCase().replace(/\_/g, ' ')
+            : `${this.info.Status.charAt(0)}${this.info.Status.slice(1).toLowerCase().replace(/\_/g, ' ')}`
         this.label = `${this.info.ServiceName} [${displayStatus}]`
     }
 
@@ -85,9 +85,9 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
     }
 
     private registerEvent(): void {
-        this.parent.addEvent({
-            getEventId: () => this.info.ServiceArn,
-            isPending: () => this.info.Status === 'OPERATION_IN_PROGRESS',
+        this.parent.addListener({
+            id: this.info.ServiceArn,
+            isPending: model => model.Status === 'OPERATION_IN_PROGRESS',
             update: (newModel: AppRunner.Service) => {
                 this.currentOperation.Id = undefined
                 this.currentOperation.Type = undefined
@@ -98,16 +98,16 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
 
     public async pause(): Promise<void> {
         const resp = await this.client.pauseService({ ServiceArn: this.info.ServiceArn })
-        this.currentOperation.Id = resp.PauseServiceResult.OperationId
+        this.currentOperation.Id = resp.OperationId
         this.currentOperation.Type = 'PAUSE_SERVICE'
-        this.update(resp.PauseServiceResult.Service)
+        this.update(resp.Service)
     }
 
     public async resume(): Promise<void> {
         const resp = await this.client.resumeService({ ServiceArn: this.info.ServiceArn })
-        this.currentOperation.Id = resp.ResumeServiceResult.OperationId
+        this.currentOperation.Id = resp.OperationId
         this.currentOperation.Type = 'RESUME_SERVICE'
-        this.update(resp.ResumeServiceResult.Service)
+        this.update(resp.Service)
     }
 
     public getUrl(): string {
@@ -116,46 +116,42 @@ export class AppRunnerServiceNode extends CloudWatchLogsParentNode {
 
     public async deploy(): Promise<void> {
         const resp = await this.client.startDeployment({ ServiceArn: this.info.ServiceArn })
-        this.currentOperation.Id = resp.StartDeploymentResult.OperationId
+        this.currentOperation.Id = resp.OperationId
         this.currentOperation.Type = 'START_DEPLOYMENT'
         this.update(this.info)
     }
 
     public async delete(): Promise<void> {
-        try {
-            const validateName = (name: string) => {
-                if (name !== 'delete') {
-                    return localize('AWS.apprunner.deleteService.name.invalid', ``)
+        const validateName = (name: string) => {
+            if (name !== 'delete') {
+                return localize('AWS.apprunner.deleteService.name.invalid',`Type 'delete' to confirm`)
+            }
+
+            return undefined
+        }
+
+        const helpButton = createHelpButton()
+        const inputBox = createInputBox({ options: {
+            title: localize('AWS.apprunner.deleteService.title', 'Delete App Runner service'),
+            placeHolder: localize('AWS.apprunner.deleteService.placeholder', 'delete')
+        }, buttons: [helpButton]})
+
+        const userInput = await promptUser({
+            inputBox: inputBox,
+            onValidateInput: validateName,
+            onDidTriggerButton: button => {
+                if (button === helpButton) {
+                    // TODO: add URL to app runner docs
+                    vscode.env.openExternal(vscode.Uri.parse(''))
                 }
+            },
+        })
 
-                return undefined
-            }
-
-            const helpButton = createHelpButton()
-            const inputBox = createInputBox({ options: {
-                title: localize('AWS.apprunner.deleteService.title', 'Delete App Runner service'),
-                placeHolder: localize('AWS.apprunner.deleteService.placeholder', `Type 'delete' to confirm`)
-            }, buttons: [helpButton]})
-    
-            const userInput = await promptUser({
-                inputBox: inputBox,
-                onValidateInput: validateName,
-                onDidTriggerButton: button => {
-                    if (button === helpButton) {
-                        // TODO: add URL to app runner docs
-                        vscode.env.openExternal(vscode.Uri.parse(''))
-                    }
-                },
-            })
-
-            if (userInput !== undefined) {
-                const resp = await this.client.deleteService({ ServiceArn: this.info.ServiceArn })
-                this.currentOperation.Id = resp.DeleteServiceResult.OperationId
-                this.currentOperation.Type = 'DELETE_SERVICE'
-                this.update(resp.DeleteServiceResult.Service)
-            }
-        } catch (e) {
-            console.log(e)
+        if (userInput !== undefined) {
+            const resp = await this.client.deleteService({ ServiceArn: this.info.ServiceArn })
+            this.currentOperation.Id = resp.OperationId
+            this.currentOperation.Type = 'DELETE_SERVICE'
+            this.update(resp.Service)
         }
     }
 }

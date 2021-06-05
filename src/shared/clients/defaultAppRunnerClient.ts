@@ -2,12 +2,10 @@
  * Copyright 2018-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { Service } from 'aws-sdk'
 import { ext } from '../../shared/extensionGlobals'
 
 // TODO: These two files can be removed when App Runner is officially released:
-import * as AppRunner from '../../apprunner/models/apprunner'
-import apiConfig = require('../../apprunner/models/service-2.json')
+import { AppRunner } from 'aws-sdk'
 import { AppRunnerClient } from './apprunnerClient'
 
 export class DefaultAppRunnerClient implements AppRunnerClient {
@@ -60,16 +58,6 @@ export class DefaultAppRunnerClient implements AppRunnerClient {
     }
 
     protected async createSdkClient(): Promise<AppRunner> {
-        return await ext.sdkClientBuilder.createAndConfigureServiceClient(
-            opts => new Service(opts),
-            {
-                // @ts-ignore: apiConfig is internal and not in the TS declaration file
-                apiConfig: apiConfig,
-                region: this.regionCode,
-                endpoint: 'https://fusion.gamma.us-east-1.bullet.aws.dev',
-            },
-            undefined,
-            false
-        )
+        return await ext.sdkClientBuilder.createAwsService(AppRunner, undefined, this.regionCode)
     }
 }

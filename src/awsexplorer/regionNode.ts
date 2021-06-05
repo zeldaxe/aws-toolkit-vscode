@@ -64,7 +64,7 @@ export class RegionNode extends AWSTreeNodeBase {
             },
             {
                 serviceId: 'apprunner',
-                createFn: () => new AppRunnerNode(ext.toolkitClientBuilder.createAppRunnerClient(this.regionCode)),
+                createFn: () => new AppRunnerNode(this.regionCode),
             },
             ...(isCloud9() ? [] : [{ serviceId: 'schemas', createFn: () => new SchemasNode(this.regionCode) }]),
             ...(isCloud9() ? [] : [{ serviceId: 'states', createFn: () => new StepFunctionsNode(this.regionCode) }]),

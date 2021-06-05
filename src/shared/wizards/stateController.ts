@@ -117,7 +117,7 @@ export class StateMachineController<TState> {
                 (result.nextState !== undefined || result.nextSteps !== undefined || result.repeatStep !== undefined)
         }
 
-        if (isMachineResult(result)) {
+        if (result === undefined || isMachineResult(result)) {
             return result
         } else {
             return { nextState: result }

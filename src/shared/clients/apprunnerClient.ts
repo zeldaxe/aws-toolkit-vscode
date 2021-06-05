@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as AppRunner from '../../apprunner/models/apprunner'
+import { AppRunner } from 'aws-sdk'
 
 export interface AppRunnerClient {
     readonly regionCode: string

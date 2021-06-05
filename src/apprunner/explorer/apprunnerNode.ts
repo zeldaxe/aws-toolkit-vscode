@@ -11,33 +11,20 @@ import { PlaceholderNode } from '../../shared/treeview/nodes/placeholderNode'
 import * as nls from 'vscode-nls'
 import { AppRunnerClient } from '../../shared/clients/apprunnerClient'
 import { getPaginatedAwsCallIter } from '../../shared/utilities/collectionUtils'
-import * as AppRunner from '../models/apprunner'
-import { CreateAppRunnerServiceWizard } from '../wizards/wizardpart2'
+import { AppRunner } from 'aws-sdk'
+import { CreateAppRunnerServiceWizard } from '../wizards/apprunnerCreateServiceWizard'
+import { ext } from '../../shared/extensionGlobals'
+
 const localize = nls.loadMessageBundle()
-
-// TODO: split into 'Listener' and 'Event'
-interface Event<Model = any> {
-    retryAfter?: number
-    model?: Model
-    isPending(): boolean
-    getEventId(): string
-    update?(newModel?: Model): void
-}
-
-interface PollEvent<Model = any> {
-    model?: Model
-}
-
-interface Listener<Model = any> {
-    update(model?: Model): void
-}
 export class AppRunnerNode extends AWSTreeNodeBase {
     // Maps ServiceIds to nodes
     private readonly serviceNodes: Map<string, AppRunnerServiceNode>
     private poller: AppRunnerPollManager
+    private readonly client: AppRunnerClient
 
-    public constructor(private readonly client: AppRunnerClient) {
+    public constructor(public readonly region: string) {
         super('App Runner', vscode.TreeItemCollapsibleState.Collapsed)
+        this.client = ext.toolkitClientBuilder.createAppRunnerClient(region)
         this.serviceNodes = new Map<string, AppRunnerServiceNode>()
         this.contextValue = 'awsAppRunnerNode'
         this.poller = new AppRunnerPollManager(() => this.listServices())
@@ -61,15 +48,15 @@ export class AppRunnerNode extends AWSTreeNodeBase {
         })
     }
 
-    public addEvent(event: Event<AppRunner.Service>): void {
-        this.poller.addEvent(event)
+    public addListener(listener: Listener<AppRunner.Service>): void {
+        this.poller.addListener(listener)
     }
 
-    private async listServices(): Promise<Event<AppRunner.Service>[]> {
+    private async listServices(): Promise<PollEvent<AppRunner.Service>[]> {
         const request: AppRunner.ListServicesRequest = {}
 
         const iterator = getPaginatedAwsCallIter({
-            awsCall: async request => (await this.client.listServices(request)).ListServicesResult,
+            awsCall: async request => (await this.client.listServices(request)),
             nextTokenNames: {
                 request: 'NextToken',
                 response: 'NextToken',
@@ -77,16 +64,12 @@ export class AppRunnerNode extends AWSTreeNodeBase {
             request,
         })
 
-        const services: Map<string, Event<AppRunner.Service>> = new Map()
+        const services: Map<string, PollEvent<AppRunner.Service>> = new Map()
 
         for await (const list of iterator) {
             await Promise.all(
                 list.ServiceSummaryList.map(summary => summary as AppRunner.Service).map(async summary => {
-                    services.set(summary.ServiceArn, {
-                        model: summary,
-                        getEventId: () => summary.ServiceArn,
-                        isPending: () => summary.Status === 'OPERATION_IN_PROGRESS',
-                    })
+                    services.set(summary.ServiceArn, { id: summary.ServiceArn, model: summary })
                 })
             )
         }
@@ -94,11 +77,7 @@ export class AppRunnerNode extends AWSTreeNodeBase {
         // Special case for deleted services
         this.serviceNodes.forEach((_, key) => {
             if (!services.has(key)) {
-                services.set(key, {
-                    model: { Status: 'DELETED' } as any,
-                    getEventId: () => key,
-                    isPending: () => false,
-                })
+                services.set(key, { id: key, model: { Status: 'DELETED' } as any })
             }
         })
 
@@ -109,7 +88,7 @@ export class AppRunnerNode extends AWSTreeNodeBase {
         const request: AppRunner.ListServicesRequest = {}
 
         const iterator = getPaginatedAwsCallIter({
-            awsCall: async request => (await this.client.listServices(request)).ListServicesResult,
+            awsCall: async request => (await this.client.listServices(request)),
             nextTokenNames: {
                 request: 'NextToken',
                 response: 'NextToken',
@@ -126,7 +105,7 @@ export class AppRunnerNode extends AWSTreeNodeBase {
                         // Get top-level operation (always the first element)
                         const operations = (
                             await this.client.listOperations({ MaxResults: 1, ServiceArn: summary.ServiceArn })
-                        ).ListOperationsResult?.OperationSummaryList
+                        ).OperationSummaryList
                         const operation = operations && operations[0].EndedAt === undefined ? operations[0] : undefined
                         this.serviceNodes.set(
                             summary.ServiceArn,
@@ -145,30 +124,43 @@ export class AppRunnerNode extends AWSTreeNodeBase {
     }
 
     public async createService(): Promise<void> {
-        const wizard = new CreateAppRunnerServiceWizard('us-east-1')
-        try {
-            const result = await wizard.run()
-            if (result !== undefined) {
-                try {
-                    await this.client.createService(result)
-                    this.refresh()
-                } catch (e) {
-                    console.log(e)
-                }
-            }
-        } catch (err) {
-            console.log(err)
+        const wizard = new CreateAppRunnerServiceWizard(this.region)
+        const result = await wizard.run()
+        if (result !== undefined) {
+            await this.client.createService(result)
+            this.refresh()
         }
     }
 }
 
-/****************************************/
-/********** EXPERIMENTAL CODE ***********/
-/****************************************/
+
+/**
+ * A polling event. This is generated by a 'ListResources' call and is used to determine if a Listener
+ * should be removed from the event pool, firing callbacks.
+ */
+ interface PollEvent<Model = any> {
+    id: string
+    model: Model
+    retryAfter?: number
+}
+
+/**
+ * A listener for resource updates. 
+ */
+interface Listener<Model = any> {
+    id: string
+    update(model: Model): void
+    isPending(model: Model): boolean
+}
+
+/**
+ * Generic polling class. Allows for batch polling operations and asynchonrous updating of resource nodes.
+ * Will eventually be moved into the base resource tree node.
+ */
 abstract class PollManager<Model = any> {
-    protected eventPool: Map<
+    protected listenerPool: Map<
         string,
-        { model?: Model; event: Event<Model>; collisions: number; retryAfter: number }
+        { model?: Model, listener: Listener<Model>, collisions: number, retryAfter: number }
     > = new Map()
     protected pollTimer: NodeJS.Timeout | undefined
     protected timerEnd: number = Number.MAX_VALUE
@@ -185,7 +177,7 @@ abstract class PollManager<Model = any> {
     // Updates collisions and returns the polling delta
     private updateCollisions(): number {
         let pollDelta = Number.MAX_VALUE
-        this.eventPool.forEach(element => {
+        this.listenerPool.forEach(element => {
             if (element.retryAfter < Date.now()) {
                 element.retryAfter = Date.now() + this.exponentialBackoff(++element.collisions)
             } else {
@@ -207,15 +199,15 @@ abstract class PollManager<Model = any> {
         this.timerEnd = Date.now() + delta
     }
 
-    public addEvent(event: Event<Model>, model?: Model): void {
-        this.eventPool.set(event.getEventId(), {
+    public addListener(listener: Listener<Model>, model?: Model): void {
+        this.listenerPool.set(listener.id, {
             model: model,
-            event: event,
+            listener: listener,
             collisions: 0,
-            retryAfter: event.retryAfter ?? Date.now() + this.baseTime,
+            retryAfter: Date.now() + this.baseTime,
         })
 
-        if (this.eventPool.size === 1) {
+        if (this.listenerPool.size === 1) {
             // start polling
             this.setTimer(this.baseTime)
             console.log('poll manager: started')
@@ -225,10 +217,10 @@ abstract class PollManager<Model = any> {
         }
     }
 
-    public removeEvent(event: Event<Model>): void {
-        this.eventPool.delete(event.getEventId())
+    public removeListener(listener: Listener<Model>): void {
+        this.listenerPool.delete(listener.id)
 
-        if (this.eventPool.size === 0 && this.pollTimer !== undefined) {
+        if (this.listenerPool.size === 0 && this.pollTimer !== undefined) {
             clearTimeout(this.pollTimer)
         }
     }
@@ -237,24 +229,17 @@ abstract class PollManager<Model = any> {
         console.log(`poll manager: refresh ${new Date(Date.now()).toISOString()}`)
         const newEvents = await this.listEvents()
         newEvents.forEach(event => {
-            if (!this.eventPool.has(event.getEventId())) {
-                // remove this block
-                if (event.isPending()) {
-                    this.addEvent(event)
+            const listener = this.listenerPool.get(event.id)?.listener
+             if (listener !== undefined && !listener.isPending(event.model)) {
+                if (listener.update !== undefined) {
+                    console.log(`poll manager: updated ${event.id}`)
+                    listener.update(event.model)
                 }
-            } else {
-                if (!event.isPending()) {
-                    const previous = this.eventPool.get(event.getEventId())!.event
-                    if (previous.update) {
-                        console.log(`poll manager: updated ${event.getEventId()}`)
-                        previous.update(event.model)
-                    }
-                    this.removeEvent(event)
-                }
+                this.removeListener(listener)
             }
         })
 
-        if (this.eventPool.size !== 0) {
+        if (this.listenerPool.size !== 0) {
             // recalculate new time from group of events
             this.setTimer(this.updateCollisions())
         } else {
@@ -262,15 +247,15 @@ abstract class PollManager<Model = any> {
         }
     }
 
-    protected abstract listEvents(maxPage?: number, nextToken?: string): Promise<Event<Model>[]>
+    protected abstract listEvents(maxPage?: number, nextToken?: string): Promise<PollEvent<Model>[]>
 }
 
 export class AppRunnerPollManager extends PollManager<AppRunner.Service> {
-    public constructor(private readonly listServices: () => Promise<Event<AppRunner.Service>[]>) {
+    public constructor(private readonly listServices: () => Promise<PollEvent<AppRunner.Service>[]>) {
         super()
     }
 
-    protected async listEvents(maxPage?: number, nextToken?: string): Promise<Event<AppRunner.Service>[]> {
+    protected async listEvents(maxPage?: number, nextToken?: string): Promise<PollEvent<AppRunner.Service>[]> {
         return this.listServices()
     }
 }

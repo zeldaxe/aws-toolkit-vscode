@@ -15,7 +15,7 @@ import {
     WIZARD_TERMINATE,
 } from '../../shared/wizards/multiStepWizard'
 import { createQuickPick, promptUser, verifySinglePickerOutput } from '../../shared/ui/picker'
-import * as AppRunner from '../models/apprunner'
+import { AppRunner } from 'aws-sdk'
 import * as nls from 'vscode-nls'
 import { createHelpButton } from '../../shared/ui/buttons'
 import * as input from '../../shared/ui/input'

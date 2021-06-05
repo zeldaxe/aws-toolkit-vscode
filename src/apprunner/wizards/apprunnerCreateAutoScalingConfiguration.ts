@@ -5,9 +5,9 @@
 import * as nls from 'vscode-nls'
 import { ExtendedMachineState, MachineState, StateMachineController } from '../../shared/wizards/multiStepWizard'
 import * as vscode from 'vscode'
-import * as AppRunner from '../models/apprunner'
+import { AppRunner } from 'aws-sdk'
 import { createHelpButton } from '../../shared/ui/buttons'
-import { this.context.promptWithInputBox } from './wizardpart2'
+import { this.context.promptWithInputBox } from './apprunnerCreateServiceWizard'
 
 const localize = nls.loadMessageBundle()
 
