@@ -247,7 +247,7 @@ export class CreateAppRunnerServiceWizard {
 
         state.name = response
 
-        return { nextState: response !== undefined ? state : undefined }
+        return { nextState: response !== undefined ? state : undefined, repeatStep: false, }
     }
 
     private sourceStep: StateStepFunction<CreateServiceState> = async (state: CreateServiceState) => {
