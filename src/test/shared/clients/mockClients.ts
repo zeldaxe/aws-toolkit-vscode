@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { APIGateway, CloudFormation, CloudWatchLogs, IAM, Lambda, Schemas, StepFunctions, STS, SSM } from 'aws-sdk'
+import { APIGateway, CloudFormation, CloudWatchLogs, IAM, Lambda, Schemas, StepFunctions, STS, SSM, AppRunner } from 'aws-sdk'
 import { ApiGatewayClient } from '../../../shared/clients/apiGatewayClient'
 import { CloudFormationClient } from '../../../shared/clients/cloudFormationClient'
 import { CloudWatchLogsClient } from '../../../shared/clients/cloudWatchLogsClient'
@@ -16,6 +16,7 @@ import { StepFunctionsClient } from '../../../shared/clients/stepFunctionsClient
 import { StsClient } from '../../../shared/clients/stsClient'
 import { SsmDocumentClient } from '../../../shared/clients/ssmDocumentClient'
 import { ToolkitClientBuilder } from '../../../shared/clients/toolkitClientBuilder'
+import { AppRunnerClient } from '../../../shared/clients/apprunnerClient'
 
 import '../../../shared/utilities/asyncIteratorShim'
 import { asyncGenerator } from '../../utilities/collectionUtils'
@@ -37,9 +38,6 @@ import {
     ListObjectVersionsResponse,
     DeleteObjectsResponse,
 } from '../../../shared/clients/s3Client'
-
-import { AppRunnerClient } from '../../../apprunner/apprunnerClient'
-import AppRunner = require('../../../apprunner/models/apprunner')
 
 interface Clients {
     apiGatewayClient: ApiGatewayClient
@@ -180,8 +178,8 @@ export class MockCloudWatchLogsClient implements CloudWatchLogsClient {
         public readonly regionCode: string = '',
 
         public readonly describeLogGroups: (
-            statusFilter?: string[]
-        ) => AsyncIterableIterator<CloudWatchLogs.LogGroup> = (statusFilter?: string[]) => asyncGenerator([]),
+            request: CloudWatchLogs.DescribeLogGroupsRequest
+        ) => AsyncIterableIterator<CloudWatchLogs.LogGroup> = () => asyncGenerator([]),
 
         public readonly describeLogStreams: (
             request: CloudWatchLogs.DescribeLogStreamsRequest
@@ -545,6 +543,31 @@ export class MockS3Client implements S3Client {
 
 export class MockAppRunnerClient implements AppRunnerClient {
     public constructor(public readonly regionCode: string = '') {}
+    
+    pauseService(request: AppRunner.PauseServiceRequest): Promise<AppRunner.PauseServiceResponse> {
+        throw new Error('Method not implemented.')
+    }
+    resumeService(request: AppRunner.ResumeServiceRequest): Promise<AppRunner.ResumeServiceResponse> {
+        throw new Error('Method not implemented.')
+    }
+    updateService(request: AppRunner.UpdateServiceRequest): Promise<AppRunner.UpdateServiceResponse> {
+        throw new Error('Method not implemented.')
+    }
+    describeService(request: AppRunner.DescribeServiceRequest): Promise<AppRunner.DescribeServiceResponse> {
+        throw new Error('Method not implemented.')
+    }
+    deleteService(request: AppRunner.DeleteServiceRequest): Promise<AppRunner.DeleteServiceResponse> {
+        throw new Error('Method not implemented.')
+    }
+    listConnections(request: AppRunner.ListConnectionsRequest): Promise<AppRunner.ListConnectionsResponse> {
+        throw new Error('Method not implemented.')
+    }
+    listOperations(request: AppRunner.ListOperationsRequest): Promise<AppRunner.ListOperationsResponse> {
+        throw new Error('Method not implemented.')
+    }
+    startDeployment(request: AppRunner.StartDeploymentRequest): Promise<AppRunner.StartDeploymentResponse> {
+        throw new Error('Method not implemented.')
+    }
 
     public createService(request: AppRunner.CreateServiceRequest): Promise<AppRunner.CreateServiceResponse> {
         throw Error('e')

@@ -25,7 +25,7 @@ import * as input from '../../shared/ui/input'
 
 const localize = nls.loadMessageBundle()
 
-const DEFAULT_PORT = '8080'
+//const DEFAULT_PORT = '8080'
 
 // These types are in the AppRunner API but they're unioned with the string type.
 type AppRunnerSourceType = 'ECR' | 'ECR-Public' | 'Repository' | 'API'

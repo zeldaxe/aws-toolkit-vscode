@@ -4,10 +4,8 @@
  */
 
 import * as vscode from 'vscode'
-import { createAppRunnerService } from './commands/createApprunnerService'
 import { AppRunnerNode } from './explorer/apprunnerNode'
 import { AppRunnerServiceNode } from './explorer/apprunnerServiceNode'
-import { makeApprunnerConnectionWizard } from './wizards/apprunnerCreateConnectionWizard'
 
 /**
  * Activates the service formely known as Fusion
