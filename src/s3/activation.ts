@@ -42,7 +42,7 @@ export async function activate(extensionContext: vscode.ExtensionContext): Promi
             const s3Client = ext.toolkitClientBuilder.createS3Client(regionCode) 
             const editor = vscode.window.activeTextEditor
             const document = editor?.document.uri        
-            await uploadFileCommand(s3Client, undefined, document)
+            await uploadFileCommand(s3Client, document)
         }),
         vscode.commands.registerCommand('aws.s3.uploadFileToParent', async (node: S3FileNode) => {
             await uploadFileToParentCommand(node)

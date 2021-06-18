@@ -42,15 +42,12 @@ export interface FileSizeBytes {
  * If the S3BucketNode | S3FolderNode is given, it asks for the file then uploads to node
  * If the node is not give, it asks for the file and also for a bucket, then uploads
  * 
- * @param s3Client - account to upload the file to
- * @param node - bucket or folder to upload the file to
- * @param document - open document (to use as default), if any
+ * @param s3Client account to upload the file to
  * 
  */
  export async function uploadFileCommand(
     s3Client: S3Client,
-    node?: S3BucketNode | S3FolderNode,
-    document?: vscode.Uri,
+    nodeOrDocument?: S3BucketNode | S3FolderNode | vscode.Uri,
     fileSizeBytes: FileSizeBytes = statFile,
     getBucket = promptUserForBucket,
     getFile = getFileToUpload,
@@ -62,7 +59,15 @@ export interface FileSizeBytes {
     let bucket: S3.Bucket
     let file: vscode.Uri | undefined
     
-    if (node) {
+    let isNode: boolean
+    if (!nodeOrDocument) {
+        isNode = false
+    } else { 
+        isNode = !!((nodeOrDocument as any).getChildren)
+    }
+
+    if (isNode) {
+        const node = nodeOrDocument as S3BucketNode | S3FolderNode
         file = await getFile(undefined, window)
             if (!file) {
                 showOutputMessage('No file selected, cancelling upload', outputChannel)
@@ -73,6 +78,7 @@ export interface FileSizeBytes {
         key = node.path + path.basename(file.fsPath)
         bucket = { Name: node.bucket.name }
     } else {
+        const document = nodeOrDocument as vscode.Uri
         while (true) {
             file = await getFile(document, window)
             if (file) {
@@ -116,7 +122,7 @@ export interface FileSizeBytes {
             bucketName: bucket.Name!,
             key: key,
             fileLocation: file,
-            fileSizeBytes: 16,
+            fileSizeBytes: fileSizeBytes(file),
             s3Client,
             window: window
         }
@@ -193,7 +199,7 @@ interface BucketQuickPickItem extends vscode.QuickPickItem {
 // TODO:: extract and reuse logic from 
 /**
  * Will display a quick pick with the list of all buckets owned by the user.
- * @param s3client - client to get the list of buckets
+ * @param s3client client to get the list of buckets
  * @returns Bucket selected by the user, undefined if no bucket was selected or the quick pick was cancelled.
  * 
  * @throws Error if there is an error calling s3
@@ -289,7 +295,7 @@ export async function promptUserForBucket(
  * Gets the open file in the current editor
  * Asks the user to browse for more files
  * If no file is open it prompts the user to select file
- * @param document - document to use as currently open
+ * @param document document to use as currently open
  * 
  * @returns file selected by the user
  */
