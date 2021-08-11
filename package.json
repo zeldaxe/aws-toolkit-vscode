@@ -195,6 +195,15 @@
                     "type": "boolean",
                     "description": "%AWS.configuration.description.ecs.warnBeforeDisablingExecuteCommand%",
                     "default": true
+                },
+                "aws.togglePrompts": {
+                    "type": "object",
+                    "description": "%AWS.setting.togglePrompts.description%",
+                    "default": {
+                        "warnBeforeRunCommand": true,
+                        "warnBeforeEnablingExcecuteCommand": true,
+                        "warnBeforeDisablingExecuteCommand": true
+                    }
                 }
             }
         },
