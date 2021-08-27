@@ -4,7 +4,7 @@
  */
 import { Graph, GraphObject } from './graph'
 import { yamlParse } from 'yaml-cfn'
-import { LinkTypes } from '../samVisualizeTypes'
+import { TemplateLinkTypes } from '../samVisualizeTypes'
 import * as _ from 'lodash'
 import { getLogger } from '../../shared/logger/logger'
 
@@ -12,19 +12,11 @@ import { getLogger } from '../../shared/logger/logger'
  * @param inputYaml A string representing a YAML template
  * @returns A JavaScript object corresponding to the given YAML string, or undefined if the input is not valid YAML
  */
-function yamlStringToObject(inputYaml: string): Record<string, any> | undefined {
+function yamlStringToObject(inputYaml: string, filePathForErr: string): Record<string, any> | undefined {
     try {
         return yamlParse(inputYaml)
     } catch (err) {
-        // The number of characters previewed in an erroneous template string
-        const characterLimit = 25
-        getLogger().error(
-            `SAM Visualize: Failed to load template "${inputYaml.substr(
-                0,
-                characterLimit
-            )}"... Please ensure the template is valid YAML: 0%`,
-            err
-        )
+        getLogger().error(`Failed to load CloudFormation template [${filePathForErr}]: ${err} `)
     }
 }
 
@@ -65,38 +57,38 @@ function traverse(graph: Graph, currentObj: Record<string, any>, parentNodeName:
         switch (key) {
             //  "DepenedsOn" can point to a single string or a list of strings. Here we wish to capture all resources in a list, or just a single resource.
             //  https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html
-            case LinkTypes.DependsOn:
+            case TemplateLinkTypes.DependsOn:
                 if (Array.isArray(value)) {
                     for (const destNodeName of value) {
-                        graph.createLink(parentNodeName, destNodeName, LinkTypes.DependsOn)
+                        graph.createLink(parentNodeName, destNodeName, TemplateLinkTypes.DependsOn)
                     }
                 } else {
-                    graph.createLink(parentNodeName, value, LinkTypes.DependsOn)
+                    graph.createLink(parentNodeName, value, TemplateLinkTypes.DependsOn)
                 }
                 break
 
             //  Once the YAML is parsed, a "GetAtt" key will point to an array with two elements.
             //  We only want the logicalNameOfResource, which lies in the first element of the tuple.
             //  https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html
-            case LinkTypes.GetAtt:
-                graph.createLink(parentNodeName, value[0], LinkTypes.GetAtt)
+            case TemplateLinkTypes.GetAtt:
+                graph.createLink(parentNodeName, value[0], TemplateLinkTypes.GetAtt)
                 break
 
             //  Adding a single link, from a "Ref" key
             //  https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html
-            case LinkTypes.Ref:
-                graph.createLink(parentNodeName, value, LinkTypes.Ref)
+            case TemplateLinkTypes.Ref:
+                graph.createLink(parentNodeName, value, TemplateLinkTypes.Ref)
                 break
 
             //  Extracting an link out of a substitution
             //  A sub link can point to an array, or a single string.
             //  We can immediately extract the substituion if it points to a string, otherwise we must continue traversing
             //  https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html
-            case LinkTypes.Sub:
+            case TemplateLinkTypes.Sub:
                 if (_.isString(value)) {
                     const substitutions = extractSubstitution(value)
                     for (const destNodeName of substitutions) {
-                        graph.createLink(parentNodeName, destNodeName, LinkTypes.Sub)
+                        graph.createLink(parentNodeName, destNodeName, TemplateLinkTypes.Sub)
                     }
                 } else {
                     // Key must point to an array
@@ -124,15 +116,18 @@ function traverse(graph: Graph, currentObj: Record<string, any>, parentNodeName:
  * @param inputYaml A string representing a YAML template.
  * @returns A GraphObject representing the graph, or `undefined` if the input does adhere to the `Template Anatomy`
  */
-export function generateGraphFromYaml(inputYaml: string): GraphObject | undefined {
-    const templateData = yamlStringToObject(inputYaml)
+export function generateGraphFromYaml(inputYaml: string, filePathForErr: string): GraphObject | undefined {
+    const templateData = yamlStringToObject(inputYaml, filePathForErr)
     // A graph cannot be generated if the template data is not defined, or not an object
     if (templateData !== undefined && _.isObjectLike(templateData)) {
         // We only want Resources as nodes in the graph
         const resources = templateData['Resources']
 
         // If the input yaml does not have a 'Resources' key, no graph can be generated
-        if (!_.isObjectLike(resources)) {
+        if (!_.isObjectLike(resources) || _.isArrayLike(resources)) {
+            getLogger().error(
+                `Error rendering CloudFormation template [${filePathForErr}]. Cannot render a template with a missing or invalid 'Resources' key.`
+            )
             return undefined
         }
 
@@ -142,7 +137,16 @@ export function generateGraphFromYaml(inputYaml: string): GraphObject | undefine
         // These are the only nodes we want to be working with, links to non-resources will be ignored.
         for (const resourceName of Object.keys(resources)) {
             // If a resource does not contain an object body, it cannot be defined in the graph
-            if (!_.isObjectLike(resources[resourceName])) {
+            if (!_.isObjectLike(resources[resourceName]) || _.isArrayLike(resources[resourceName])) {
+                getLogger().error(
+                    `Error rendering CloudFormation template [${filePathForErr}]. The '${resourceName}' resource definition is invalid.`
+                )
+                return undefined
+            }
+            if (!_.isString(resources[resourceName]['Type'])) {
+                getLogger().error(
+                    `Error rendering CloudFormation template [${filePathForErr}]. The '${resourceName}' has an missing or invalid Type.`
+                )
                 return undefined
             }
             graph.initNode(resourceName, resources[resourceName]['Type'])
