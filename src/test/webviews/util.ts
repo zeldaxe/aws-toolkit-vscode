@@ -92,7 +92,7 @@ export function mockClient<T extends VueWebviewPanel<any> | VueWebviewView<any>>
 /**
  * Creates a minimalistic implementation of a {@link WebviewClient} suitable for testing backend logic.
  *
- * This re-uses {@link WebviewClientAgent} which means
+ * This re-uses {@link WebviewClientAgent}.
  */
 export function createTestClient<T extends VueWebview<any>>(
     receiver: EventEmitter<any>['event'],
