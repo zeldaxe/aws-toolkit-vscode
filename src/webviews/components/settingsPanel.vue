@@ -1,5 +1,5 @@
 <template>
-    <div :id="id" class="settings-panel">
+    <div :id="id" class="settings-panel" role="region" :aria-label="title">
         <div class="header">
             <input
                 ref="button"
@@ -8,6 +8,9 @@
                 type="checkbox"
                 v-if="collapseable || startCollapsed"
                 v-model="collapsed"
+                :aria-expanded="!collapsed"
+                :aria-controls="`${id}-items`"
+                :aria-label="collapsed ? `Expand ${title}` : `Collapse ${title}`"
             />
             <label v-bind:for="buttonId">
                 <p class="settings-title">{{ title }}</p>
@@ -19,7 +22,7 @@
             @beforeLeave="updateHeight"
             :name="collapseable || startCollapsed ? 'collapse' : ''"
         >
-            <div ref="subPane" v-show="!collapsed" class="sub-pane">
+            <div :id="`${id}-items`" ref="subPane" v-show="!collapsed" class="sub-pane" role="group">
                 <slot></slot>
             </div>
         </transition>

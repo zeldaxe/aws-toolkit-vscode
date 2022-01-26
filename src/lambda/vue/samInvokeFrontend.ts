@@ -8,9 +8,8 @@ import { AwsSamDebuggerConfiguration } from '../../shared/sam/debugger/awsSamDeb
 import { AwsSamDebuggerConfigurationLoose, SamInvokeWebview } from './samInvokeBackend'
 import settingsPanel from '../../webviews/components/settingsPanel.vue'
 import { WebviewClientFactory } from '../../webviews/client'
+import { createDefaultProp } from '../../webviews/util'
 import saveData from '../../webviews/mixins/saveData'
-
-const client = WebviewClientFactory.create<SamInvokeWebview>()
 
 interface VueDataLaunchPropertyObject {
     value: string
@@ -109,10 +108,13 @@ export default defineComponent({
     components: {
         settingsPanel,
     },
+    props: {
+        client: createDefaultProp(WebviewClientFactory.create<SamInvokeWebview>()),
+    },
     created() {
-        client.init().then(config => this.parseConfig(config))
+        this.client.init().then(config => this.parseConfig(config))
 
-        client.getRuntimes().then(runtimes => {
+        this.client.getRuntimes().then(runtimes => {
             this.runtimes = runtimes
         })
     },
@@ -139,14 +141,14 @@ export default defineComponent({
         },
         launch() {
             const config = this.formatConfig()
-            config && client.invokeLaunchConfig(config)
+            config && this.client.invokeLaunchConfig(config)
         },
         save() {
             const config = this.formatConfig()
-            config && client.saveLaunchConfig(config)
+            config && this.client.saveLaunchConfig(config)
         },
         loadConfig() {
-            client.loadSamLaunchConfig().then(config => this.parseConfig(config))
+            this.client.loadSamLaunchConfig().then(config => this.parseConfig(config))
         },
         parseConfig(config?: AwsSamDebuggerConfiguration) {
             if (!config) {
@@ -175,7 +177,7 @@ export default defineComponent({
         },
         loadPayload() {
             this.resetJsonErrors()
-            client.getSamplePayload().then(sample => {
+            this.client.getSamplePayload().then(sample => {
                 if (!sample) {
                     return
                 }
@@ -184,7 +186,7 @@ export default defineComponent({
         },
         loadResource() {
             this.resetJsonErrors()
-            client.getTemplate().then(template => {
+            this.client.getTemplate().then(template => {
                 if (!template) {
                     return
                 }

@@ -35,7 +35,7 @@
                 </div>
                 <div class="config-item">
                     <label for="runtime-selector">Runtime</label>
-                    <select name="runtimeType" v-model="launchConfig.lambda.runtime">
+                    <select id="runtime-selector" name="runtimeType" v-model="launchConfig.lambda.runtime">
                         <option disabled>Choose a runtime...</option>
                         <option v-for="(runtime, index) in runtimes" v-bind:value="runtime" :key="index">
                             {{ runtime }}
@@ -69,7 +69,7 @@
                 </div>
                 <div class="config-item">
                     <label for="runtime-selector">Runtime</label>
-                    <select name="runtimeType" v-model="launchConfig.lambda.runtime">
+                    <select id="runtime-selector" name="runtimeType" v-model="launchConfig.lambda.runtime">
                         <option disabled>Choose a runtime...</option>
                         <option v-for="(runtime, index) in runtimes" v-bind:value="runtime" :key="index">
                             {{ runtime }}
@@ -163,14 +163,22 @@
             </div>
             <h3>lambda</h3>
             <div class="config-item">
-                <label for="">Environment Variables</label>
+                <label for="environment-variables">Environment Variables</label>
                 <input
+                    id="environment-variables"
                     type="text"
                     placeholder="Enter as valid JSON"
                     v-model="environmentVariables.value"
+                    aria-errormessage="environment-variables-error"
                     :data-invalid="!!environmentVariables.errorMsg"
+                    :aria-invalid="!!environmentVariables.errorMsg"
                 />
-                <div class="input-validation col2" v-if="environmentVariables.errorMsg">
+                <!-- TODO: de-dupe the idea of a config item for accessibility -->
+                <div
+                    id="environment-variables-error"
+                    class="input-validation col2"
+                    v-if="environmentVariables.errorMsg"
+                >
                     Error parsing JSON: {{ environmentVariables.errorMsg }}
                 </div>
             </div>

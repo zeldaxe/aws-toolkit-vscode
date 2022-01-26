@@ -4,9 +4,9 @@
  */
 
 import { createApp } from 'vue'
-import component from './samInvokeComponent.vue'
+import Component from './samInvokeComponent.vue'
 
-const create = () => createApp(component)
+const create = () => createApp(Component)
 const app = create()
 app.mount('#vue-app')
 
