@@ -9,6 +9,7 @@ import * as Mocha from 'mocha'
 import * as glob from 'glob'
 import * as fs from 'fs'
 import * as os from 'os'
+import * as webviewUtil from './webviews/util'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const istanbul = require('istanbul')
@@ -21,6 +22,8 @@ const remapIstanbul = require('remap-istanbul')
 export function runTestsInFolder(testFolder: string, initTests: string[] = []): Promise<void> {
     const outputFile = path.resolve(process.env['TEST_REPORT_DIR'] || '.test-reports', 'report.xml')
     const colorOutput = !process.env['AWS_TOOLKIT_TEST_NO_COLOR']
+
+    webviewUtil.registerGlobals()
 
     // Create the mocha test
     const mocha = new Mocha({

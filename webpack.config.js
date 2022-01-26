@@ -94,26 +94,21 @@ const baseConfig = {
 }
 
 /**
- * Generates a name given a filepath to an entry file.
- * Example: `src/lambda/vue/entry.ts` -> `lambdaVue.js`
+ * Renames all Vue entry files to be `entry`, located within the same directory.
+ * Example: `src/lambda/vue/entry.ts` -> `dist/src/lambda/vue/entry.js`
  * @param {string} file
  */
 const createVueBundleName = file => {
-    return path
-        .relative('src', path.dirname(file))
-        .split(path.sep)
-        .filter(s => s !== 'vue')
-        .map((s, i) => (i ? s.charAt(0).toUpperCase().concat(s.slice(1)) : s))
-        .concat('Vue')
-        .join('')
+    return path.relative(__dirname, file).split('.').slice(0, -1).join(path.sep)
 }
 
 /**
- * Generates Vue entry points if the filename is called `entry.ts` and is under a `vue` directory.
+ * Generates Vue entry points if the filename is matches `targetPattern` (default: entry.ts)
+ * and is under a `vue` directory.
  */
-const createVueEntries = () => {
+const createVueEntries = (targetPattern = 'entry.ts') => {
     return glob
-        .sync(path.resolve(__dirname, 'src', '**', 'vue', '**', 'entry.ts'))
+        .sync(path.resolve(__dirname, 'src', '**', 'vue', '**', targetPattern))
         .map(f => ({ name: createVueBundleName(f), path: f }))
         .reduce((a, b) => ((a[b.name] = b.path), a), {})
 }
@@ -138,6 +133,25 @@ const vueConfig = {
     plugins: baseConfig.plugins.concat(new VueLoaderPlugin()),
 }
 
+/**
+ * Used to compile individual Vue components.
+ *
+ * This is done in webpack since we can leverage `VueLoaderPlugin`.
+ * `npm run compile` should be ran prior to running relevant test code.
+ */
+const vueTests = {
+    ...vueConfig,
+    name: 'vue-test',
+    entry: createVueEntries('*.vue'),
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: '[name].vue',
+        libraryTarget: 'commonjs2',
+        devtoolModuleFilenameTemplate: '../[resource-path]',
+        publicPath: path.resolve(__dirname, 'dist'),
+    },
+}
+
 const vueHotReload = {
     ...vueConfig,
     name: 'vue-hmr',
@@ -156,4 +170,6 @@ const vueHotReload = {
 }
 
 module.exports =
-    process.env.npm_lifecycle_event === 'serve' ? [baseConfig, vueConfig, vueHotReload] : [baseConfig, vueConfig]
+    process.env.npm_lifecycle_event === 'serve'
+        ? [baseConfig, vueConfig, vueHotReload]
+        : [baseConfig, vueConfig, vueTests]

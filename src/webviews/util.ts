@@ -43,3 +43,19 @@ export function createClass<T>(defaults: T): { new (initial?: Partial<T>): T } |
 export function createType<T extends new (obj: any) => any>(Model: T): PropType<InstanceType<T>> {
     return Object
 }
+
+/**
+ * Creates an object specific to Vue's 'props' fields that is typed exclusively by a default value.
+ *
+ * Most Vue documentation provides examples of constructors as types, however, it is not uncommon
+ * to have some default value with an unknown instance type.
+ *
+ * This function assumes that the default value has Object on its prototype chain which is true for
+ * almost all JS objects.
+ */
+export function createDefaultProp<T>(value: T): { type: new () => T; default: T } {
+    return {
+        type: Object as unknown as new () => T,
+        default: value,
+    }
+}
