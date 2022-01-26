@@ -47,7 +47,7 @@ describe('samInvokeComponent', function () {
         // These commands are called in the component's `created` lifecycle event so they should
         // always be mocked with something
         when(client.init()).thenResolve(createCodeDebugConfig())
-        when(client.getRuntimes()).thenResolve([])
+        when(client.getRuntimes()).thenResolve(runtimes)
 
         // Render the component and pass in the mock client
         // Note that we can't leverage any type-safety here since Typescript does not understand '.vue' files

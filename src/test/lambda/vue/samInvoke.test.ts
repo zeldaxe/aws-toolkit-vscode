@@ -72,7 +72,7 @@ describe('Sam Invoke Vue Backend', () => {
         const panel = await window.waitForWebviewPanel<SamInvokeWebview>('SAM Debug Configuration')
         const template = await panel.client.getTemplate()
 
-        assert.strictEqual(template?.template, template1.fsPath)
+        assert.strictEqual(vscode.Uri.file(template?.template ?? '').fsPath, template1.fsPath)
 
         server.panel?.dispose()
     })
