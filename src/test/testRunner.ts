@@ -16,6 +16,13 @@ const istanbul = require('istanbul')
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const remapIstanbul = require('remap-istanbul')
 
+// Webview test dependencies
+import 'global-jsdom/register'
+import * as Vue from 'vue'
+
+// Components are bundled without the Vue runtime, so we need to manually assign it
+Object.assign(globalThis, { Vue })
+
 /**
  * @param initTests List of relative paths to test files to run before all discovered tests.
  */

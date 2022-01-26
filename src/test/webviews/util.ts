@@ -74,9 +74,6 @@ export class MockWebviewApi<T, M = any> implements WebviewApi<T> {
  * Sets up global state for running tests
  */
 export function registerGlobals(): void {
-    /* #SIDE-EFFECTS */
-    require('global-jsdom/register')
-    Object.assign(globalThis, { Vue: require('vue') })
     MockWebviewApi.register()
 }
 
