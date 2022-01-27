@@ -17,7 +17,8 @@ const istanbul = require('istanbul')
 const remapIstanbul = require('remap-istanbul')
 
 // Webview test dependencies
-import 'global-jsdom/register'
+// Apparenty VSC 1.44 can't handle package export paths
+require('global-jsdom')()
 import * as Vue from 'vue'
 
 // Components are bundled without the Vue runtime, so we need to manually assign it
