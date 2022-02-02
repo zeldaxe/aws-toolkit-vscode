@@ -69,6 +69,7 @@ describe('UI Tests', async function () {
     })
 
     it('activates the extension and closes', async function () {
+        this.timeout(60000)
         // We know it will take at least 1 second, so lets wait for 1 second, no point trying before then.
         await new Promise(resolve => setTimeout(resolve, 1000))
 
@@ -123,12 +124,12 @@ describe('UI Tests', async function () {
 
 async function clickOptionFromQuickPick(page: puppeteer.Page, targetText: string) {
     let target: puppeteer.ElementHandle<Element> | undefined
-    await page.waitForSelector('.quick-input-widget a span', {
+    await page.waitForSelector('#quickInput_list div div.monaco-list-rows div.monaco-list-row', {
         visible: true,
         hidden: false,
     })
     // quick pick item selectors
-    const quickPickSelects = await page.$$('.quick-input-widget a span')
+    const quickPickSelects = await page.$$('#quickInput_list div div.monaco-list-rows div.monaco-list-row')
     for (const quickPickSelect of quickPickSelects) {
         const text = await quickPickSelect.evaluate(node => {
             return node.textContent
