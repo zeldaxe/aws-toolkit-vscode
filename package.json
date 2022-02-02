@@ -2902,7 +2902,8 @@
         "generateConfigurationAttributes": "ts-node ./build-scripts/generateConfigurationAttributes.ts",
         "newChange": "ts-node ./build-scripts/newChange.ts",
         "createRelease": "ts-node ./build-scripts/createRelease.ts",
-        "serve": "webpack serve --config-name vue-hmr --mode development"
+        "serve": "webpack serve --config-name vue-hmr --mode development",
+        "uiTestOnly": "mocha ./src/test/uiTests/noWrapper.test.ts --require ts-node/register"
     },
     "devDependencies": {
         "@aws-toolkits/telemetry": "1.0.28",
@@ -2990,6 +2991,7 @@
         "mime-types": "^2.1.32",
         "moment": "^2.29.1",
         "portfinder": "^1.0.25",
+        "puppeteer-core": "^13.1.2",
         "semver": "^7.3.5",
         "strip-ansi": "^5.2.0",
         "tcp-port-used": "^1.0.1",
