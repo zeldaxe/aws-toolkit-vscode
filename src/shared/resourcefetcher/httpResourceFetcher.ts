@@ -54,6 +54,7 @@ export class HttpResourceFetcher implements ResourceFetcher {
             friendlyName?: string
             onSuccess?(contents: string): void
             timeout?: Timeout
+            headers?: Record<string, string>
         }
     ) {}
 
@@ -109,7 +110,9 @@ export class HttpResourceFetcher implements ResourceFetcher {
     // TODO: make pipeLocation a vscode.Uri
     private pipeGetRequest(pipeLocation: string, timeout?: Timeout): FetcherResult {
         const requester = isCloud9() ? patchedGot : got
-        const requestStream = requester.stream(this.url, { headers: { 'User-Agent': VSCODE_EXTENSION_ID.awstoolkit } })
+        const requestStream = requester.stream(this.url, {
+            headers: { 'User-Agent': VSCODE_EXTENSION_ID.awstoolkit, ...this.params.headers },
+        })
         const fsStream = fs.createWriteStream(pipeLocation)
 
         const done = new Promise<void>((resolve, reject) => {
@@ -134,7 +137,7 @@ export class HttpResourceFetcher implements ResourceFetcher {
     private async getResponseFromGetRequest(timeout?: Timeout): Promise<Response<string>> {
         const requester = isCloud9() ? patchedGot : got
         const promise = requester(this.url, {
-            headers: { 'User-Agent': VSCODE_EXTENSION_ID.awstoolkit },
+            headers: { 'User-Agent': VSCODE_EXTENSION_ID.awstoolkit, ...this.params.headers },
         })
 
         const cancelListener = timeout?.token.onCancellationRequested(event => {

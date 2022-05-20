@@ -64,6 +64,7 @@ import globals, { initialize } from './shared/extensionGlobals'
 import { join } from 'path'
 import { initializeIconPaths } from './shared/icons'
 import { Settings } from './shared/settings'
+import { getClientIdShared } from './shared/telemetry/telemetryService'
 
 let localize: nls.LocalizeFunc
 
@@ -87,7 +88,7 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
         initializeCredentialsProviderManager()
 
-        const endpointsProvider = makeEndpointsProvider()
+        const endpointsProvider = makeEndpointsProvider(await getClientIdShared(context))
 
         const awsContext = new DefaultAwsContext(context)
         globals.awsContext = awsContext
@@ -280,9 +281,14 @@ function initializeCredentialsProviderManager() {
     manager.addProviders(new Ec2CredentialsProvider(), new EcsCredentialsProvider(), new EnvVarsCredentialsProvider())
 }
 
-function makeEndpointsProvider(): EndpointsProvider {
+function makeEndpointsProvider(clientId: string): EndpointsProvider {
     const localManifestFetcher = new FileResourceFetcher(globals.manifestPaths.endpoints)
-    const remoteManifestFetcher = new HttpResourceFetcher(endpointsFileUrl, { showUrl: true })
+    const remoteManifestFetcher = new HttpResourceFetcher(endpointsFileUrl, {
+        showUrl: true,
+        headers: {
+            'client-id': clientId,
+        },
+    })
 
     const provider = new EndpointsProvider(localManifestFetcher, remoteManifestFetcher)
     // Start the load without waiting. It raises events as fetchers retrieve data.
