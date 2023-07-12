@@ -169,8 +169,8 @@ export class Ec2ConnectionManager {
         const logger = this.configureRemoteConnectionLogger(selection.instanceId)
         const { ssm, vsc, ssh } = (await ensureDependencies()).unwrap()
 
-        await this.configureRemoteSshKeys(selection)
-
+        const tempDir = await makeTemporaryToolkitFolder()
+        await this.configureRemoteSshKeys(selection, tempDir)
         const sshConfig = new Ec2RemoteSshConfig(ssh, 'ec2-user')
 
         const config = await sshConfig.ensureValid()
@@ -180,7 +180,7 @@ export class Ec2ConnectionManager {
 
             throw err
         }
-
+        await tryRemoveFolder(tempDir)
         const vars = getEc2SsmEnv(selection.region, ssm)
         const envProvider = async () => {
             return { [sshAgentSocketVariable]: await startSshAgent(), ...vars }
@@ -201,9 +201,8 @@ export class Ec2ConnectionManager {
         }
     }
 
-    private async configureRemoteSshKeys(selection: Ec2Selection) {
-        const tempDir = await makeTemporaryToolkitFolder()
-        const keyPath = `${tempDir}/${tempSshKeyName}`
+    private async configureRemoteSshKeys(selection: Ec2Selection, keyDirectory: string) {
+        const keyPath = `${keyDirectory}/${tempSshKeyName}`
         const keyGeneration = await generateSshKey(keyPath)
 
         if (keyGeneration.isErr()) {
@@ -215,7 +214,7 @@ export class Ec2ConnectionManager {
         const publicKey = `${keyPath}.pub`
         await this.sendSshKeyToInstance(selection, publicKey)
 
-        await tryRemoveFolder(tempDir)
+        await tryRemoveFolder(keyDirectory)
         return Result.ok()
     }
 
