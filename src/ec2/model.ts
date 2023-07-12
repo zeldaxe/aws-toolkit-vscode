@@ -170,7 +170,8 @@ export class Ec2ConnectionManager {
         const { ssm, vsc, ssh } = (await ensureDependencies()).unwrap()
 
         const tempDir = await makeTemporaryToolkitFolder()
-        await this.configureRemoteSshKeys(selection, tempDir)
+        const keyPath = `${tempDir}/${tempSshKeyName}`
+        await this.configureRemoteSshKeys(selection, keyPath)
         const sshConfig = new Ec2RemoteSshConfig(ssh, 'ec2-user')
 
         const config = await sshConfig.ensureValid()
@@ -201,8 +202,7 @@ export class Ec2ConnectionManager {
         }
     }
 
-    private async configureRemoteSshKeys(selection: Ec2Selection, keyDirectory: string) {
-        const keyPath = `${keyDirectory}/${tempSshKeyName}`
+    private async configureRemoteSshKeys(selection: Ec2Selection, keyPath: string) {
         const keyGeneration = await generateSshKey(keyPath)
 
         if (keyGeneration.isErr()) {
@@ -214,7 +214,6 @@ export class Ec2ConnectionManager {
         const publicKey = `${keyPath}.pub`
         await this.sendSshKeyToInstance(selection, publicKey)
 
-        await tryRemoveFolder(keyDirectory)
         return Result.ok()
     }
 
