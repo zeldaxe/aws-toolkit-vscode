@@ -18,6 +18,7 @@ import { ToolkitError } from '../errors'
 import { getIdeProperties } from '../extensionUtilities'
 import { showConfirmationMessage } from '../utilities/messages'
 import { CancellationError } from '../utilities/timeoutUtils'
+import { makeTemporaryToolkitFolder, tryRemoveFolder } from '../filesystemUtilities'
 
 const localize = nls.loadMessageBundle()
 
@@ -148,6 +149,19 @@ export async function startVscodeRemote(
     }
 
     await new ProcessClass(vscPath, ['--folder-uri', workspaceUri]).run()
+}
+
+export async function generateSshKey() {
+    const tempDir = await makeTemporaryToolkitFolder()
+    console.log(tempDir)
+    const process = new ChildProcess('ssh-keygen', ['-t', 'rsa', '-N', "''", '-q', '-f', `${tempDir}/ssh-key`])
+    const result = await process.run()
+    if (result.exitCode !== 0) {
+        console.log(result)
+        return Result.err(new ToolkitError('Failed to generate ssh key', { cause: result.error }))
+    }
+    await tryRemoveFolder(tempDir)
+    return Result.ok()
 }
 
 export abstract class VscodeRemoteSshConfig {

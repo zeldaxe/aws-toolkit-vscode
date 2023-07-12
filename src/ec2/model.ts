@@ -14,7 +14,7 @@ import { Ec2Client } from '../shared/clients/ec2Client'
 import { VscodeRemoteConnection, ensureDependencies, openRemoteTerminal } from '../shared/remoteSession'
 import { DefaultIamClient } from '../shared/clients/iamClient'
 import { ErrorInformation } from '../shared/errors'
-import { sshAgentSocketVariable, startSshAgent, startVscodeRemote } from '../shared/extensions/ssh'
+import { generateSshKey, sshAgentSocketVariable, startSshAgent, startVscodeRemote } from '../shared/extensions/ssh'
 import { createBoundProcess } from '../codecatalyst/model'
 import { getLogger } from '../shared/logger/logger'
 import { Timeout } from '../shared/utilities/timeoutUtils'
@@ -159,6 +159,16 @@ export class Ec2ConnectionManager {
         const logger = this.configureRemoteConnectionLogger(selection.instanceId)
         const { ssm, vsc, ssh } = (await ensureDependencies()).unwrap()
         const sshConfig = new Ec2RemoteSshConfig(ssh, 'ec2-user')
+
+        const keyResult = await generateSshKey()
+
+        if (keyResult.isErr()) {
+            const err = keyResult.err()
+            getLogger().error(`ec2: failed to generate ssh keys: ${err.message}`)
+
+            throw err
+        }
+
         const config = await sshConfig.ensureValid()
         if (config.isErr()) {
             const err = config.err()
