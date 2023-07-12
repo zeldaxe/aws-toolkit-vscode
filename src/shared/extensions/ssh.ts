@@ -18,7 +18,6 @@ import { ToolkitError } from '../errors'
 import { getIdeProperties } from '../extensionUtilities'
 import { showConfirmationMessage } from '../utilities/messages'
 import { CancellationError } from '../utilities/timeoutUtils'
-import { makeTemporaryToolkitFolder, tryRemoveFolder } from '../filesystemUtilities'
 
 const localize = nls.loadMessageBundle()
 
@@ -151,17 +150,24 @@ export async function startVscodeRemote(
     await new ProcessClass(vscPath, ['--folder-uri', workspaceUri]).run()
 }
 
-export async function generateSshKey() {
-    const tempDir = await makeTemporaryToolkitFolder()
-    console.log(tempDir)
-    const process = new ChildProcess('ssh-keygen', ['-t', 'rsa', '-N', "''", '-q', '-f', `${tempDir}/ssh-key`])
+export async function generateSshKey(keyPath: string): Promise<Err<ToolkitError> | Ok<void>> {
+    const process = new ChildProcess('ssh-keygen', ['-t', 'rsa', '-N', "''", '-q', '-f', keyPath])
     const result = await process.run()
     if (result.exitCode !== 0) {
         console.log(result)
         return Result.err(new ToolkitError('Failed to generate ssh key', { cause: result.error }))
     }
-    await tryRemoveFolder(tempDir)
     return Result.ok()
+}
+
+export async function readInSshKey(keyPath: string) {
+    const process = new ChildProcess('cat', [`${keyPath}`])
+    const result = await process.run()
+    if (result.exitCode !== 0) {
+        console.log(result)
+        return Result.err(new ToolkitError('Failed to read ssh key', { cause: result.error }))
+    }
+    return Result.ok(result.stdout)
 }
 
 export abstract class VscodeRemoteSshConfig {

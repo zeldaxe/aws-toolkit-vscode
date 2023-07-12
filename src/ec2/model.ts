@@ -14,15 +14,25 @@ import { Ec2Client } from '../shared/clients/ec2Client'
 import { VscodeRemoteConnection, ensureDependencies, openRemoteTerminal } from '../shared/remoteSession'
 import { DefaultIamClient } from '../shared/clients/iamClient'
 import { ErrorInformation } from '../shared/errors'
-import { generateSshKey, sshAgentSocketVariable, startSshAgent, startVscodeRemote } from '../shared/extensions/ssh'
+import {
+    generateSshKey,
+    readInSshKey,
+    sshAgentSocketVariable,
+    startSshAgent,
+    startVscodeRemote,
+} from '../shared/extensions/ssh'
 import { createBoundProcess } from '../codecatalyst/model'
 import { getLogger } from '../shared/logger/logger'
 import { Timeout } from '../shared/utilities/timeoutUtils'
 import { showMessageWithCancel } from '../shared/utilities/messages'
 import { Ec2RemoteSshConfig } from './tools'
+import { makeTemporaryToolkitFolder, tryRemoveFolder } from '../shared/filesystemUtilities'
+import { Result } from '../shared/utilities/result'
 
 export type Ec2ConnectErrorCode = 'EC2SSMStatus' | 'EC2SSMPermission' | 'EC2SSMConnect' | 'EC2SSMAgentStatus'
 
+const tempSshKeyName = 'ssh-key'
+const remoteAuthorizedKeysPaths = '/home/ec2-user/authorized_keys'
 interface Ec2RemoteEnv extends VscodeRemoteConnection {
     selection: Ec2Selection
 }
@@ -158,16 +168,10 @@ export class Ec2ConnectionManager {
     public async prepareEc2RemoteEnv(selection: Ec2Selection): Promise<Ec2RemoteEnv> {
         const logger = this.configureRemoteConnectionLogger(selection.instanceId)
         const { ssm, vsc, ssh } = (await ensureDependencies()).unwrap()
+
+        await this.configureRemoteSshKeys(selection)
+
         const sshConfig = new Ec2RemoteSshConfig(ssh, 'ec2-user')
-
-        const keyResult = await generateSshKey()
-
-        if (keyResult.isErr()) {
-            const err = keyResult.err()
-            getLogger().error(`ec2: failed to generate ssh keys: ${err.message}`)
-
-            throw err
-        }
 
         const config = await sshConfig.ensureValid()
         if (config.isErr()) {
@@ -195,6 +199,37 @@ export class Ec2ConnectionManager {
             SessionProcess,
             selection,
         }
+    }
+
+    private async configureRemoteSshKeys(selection: Ec2Selection) {
+        const tempDir = await makeTemporaryToolkitFolder()
+        const keyPath = `${tempDir}/${tempSshKeyName}`
+        const keyGeneration = await generateSshKey(keyPath)
+
+        if (keyGeneration.isErr()) {
+            const err = keyGeneration.err()
+            getLogger().error(`ec2: failed to generate ssh keys: ${err.message}`)
+
+            return Result.err(err)
+        }
+        const publicKey = `${keyPath}.pub`
+        await this.sendSshKeyToInstance(selection, publicKey)
+
+        await tryRemoveFolder(tempDir)
+        return Result.ok()
+    }
+
+    private async sendSshKeyToInstance(selection: Ec2Selection, keypath: string) {
+        const sshKey = await readInSshKey(keypath)
+        if (sshKey.isErr()) {
+            const err = sshKey.err()
+            getLogger().error(`ec2: failed to read ssh key: ${err.message}`)
+
+            return Result.err(err)
+        }
+        const command = `echo ${sshKey.unwrap()} > ${remoteAuthorizedKeysPaths}`
+        const documentName = 'AWS-RunShellScript'
+        await this.ssmClient.sendCommandAndWait(selection.instanceId, documentName, { commands: [command] })
     }
 
     private configureRemoteConnectionLogger(instanceId: string) {
