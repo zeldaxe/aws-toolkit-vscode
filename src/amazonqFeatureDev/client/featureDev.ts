@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CodeWhispererStreaming } from '@amzn/codewhisperer-streaming'
 import { Service, Token } from 'aws-sdk'
-import { ConfiguredRetryStrategy } from '@aws-sdk/util-retry'
 import { omit } from 'lodash'
 import { AuthUtil } from '../../codewhisperer/util/authUtil'
 import { ServiceOptions } from '../../shared/awsClientBuilder'
@@ -17,6 +15,7 @@ import apiConfig = require('./codewhispererruntime-2022-11-11.json')
 import { featureName } from '../constants'
 import { ContentLengthError } from '../errors'
 import { endpoint, region } from '../../codewhisperer/models/constants'
+import { createCodeWhispererChatStreamingClient } from '../../shared/clients/codewhispererChatClient'
 
 // Create a client for featureDev proxy client based off of aws sdk v2
 export async function createFeatureDevProxyClient(): Promise<FeatureDevProxyClient> {
@@ -39,36 +38,10 @@ export async function createFeatureDevProxyClient(): Promise<FeatureDevProxyClie
     )) as FeatureDevProxyClient
 }
 
-// Create a client for featureDev streaming based off of aws sdk v3
-async function createFeatureDevStreamingClient(): Promise<CodeWhispererStreaming> {
-    const bearerToken = await AuthUtil.instance.getBearerToken()
-    const streamingClient = new CodeWhispererStreaming({
-        region,
-        endpoint,
-        token: { token: bearerToken },
-        // SETTING max attempts to 0 FOR BETA. RE-ENABLE FOR RE-INVENT
-        // Implement exponential back off starting with a base of 500ms (500 + attempt^10)
-        retryStrategy: new ConfiguredRetryStrategy(0, (attempt: number) => 500 + attempt ** 10),
-    })
-    return streamingClient
-}
-
 export class FeatureDevClient {
-    private async getClient() {
-        // Should not be stored for the whole session.
-        // Client has to be reinitialized for each request so we always have a fresh bearerToken
-        return await createFeatureDevProxyClient()
-    }
-
-    public async getStreamingClient() {
-        // Should not be stored for the whole session.
-        // Client has to be reinitialized for each request so we always have a fresh bearerToken
-        return await createFeatureDevStreamingClient()
-    }
-
     public async createConversation() {
         try {
-            const client = await this.getClient()
+            const client = await createFeatureDevProxyClient()
             getLogger().debug(`Executing createTaskAssistConversation with {}`)
             const { conversationId, $response } = await client.createTaskAssistConversation().promise()
             getLogger().debug(`${featureName}: Created conversation: %O`, {
@@ -88,7 +61,7 @@ export class FeatureDevClient {
 
     public async createUploadUrl(conversationId: string, contentChecksumSha256: string, contentLength: number) {
         try {
-            const client = await this.getClient()
+            const client = await createFeatureDevProxyClient()
             const params = {
                 uploadContext: {
                     taskAssistPlanningUploadContext: {
@@ -123,7 +96,7 @@ export class FeatureDevClient {
 
     public async generatePlan(conversationId: string, uploadId: string, userMessage: string) {
         try {
-            const streamingClient = await this.getStreamingClient()
+            const streamingClient = await createCodeWhispererChatStreamingClient()
             const params = {
                 workspaceState: {
                     programmingLanguage: { languageName: 'javascript' },

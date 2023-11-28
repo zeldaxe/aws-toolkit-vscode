@@ -12,12 +12,12 @@ import vscode from 'vscode'
 
 import { ExportIntent } from '@amzn/codewhisperer-streaming'
 import { TransformByQReviewStatus, transformByQState } from '../models/model'
-import { FeatureDevClient } from '../../amazonqFeatureDev/client/featureDev'
 import { ExportResultArchiveStructure, downloadExportResultArchive } from '../../shared/utilities/download'
 import { ToolkitError } from '../../shared/errors'
 import { getLogger } from '../../shared/logger'
 import { codeTransformTelemetryState } from '../../amazonqGumby/telemetry/codeTransformTelemetryState'
 import { telemetry } from '../../shared/telemetry/telemetry'
+import { createCodeWhispererChatStreamingClient } from '../../shared/clients/codewhispererChatClient'
 
 export abstract class ProposedChangeNode {
     abstract readonly resourcePath: string
@@ -223,10 +223,8 @@ export class ProposedTransformationExplorer {
     private changeViewer: vscode.TreeView<ProposedChangeNode>
 
     public static TmpDir = os.tmpdir()
-    private featureDevClient
 
     constructor(context: vscode.ExtensionContext) {
-        this.featureDevClient = new FeatureDevClient()
         const diffModel = new DiffModel()
         const transformDataProvider = new TransformationResultsProvider(diffModel)
         this.changeViewer = vscode.window.createTreeView(TransformationResultsProvider.viewType, {
@@ -273,7 +271,7 @@ export class ProposedTransformationExplorer {
                     transformByQState.getJobId(),
                     'ExportResultsArchive.zip'
                 )
-                const cwStreamingClient = await this.featureDevClient.getStreamingClient()
+                const cwStreamingClient = await createCodeWhispererChatStreamingClient()
                 try {
                     await downloadExportResultArchive(
                         cwStreamingClient,
